@@ -1,0 +1,13 @@
+<teamai-context>
+Use this compiled TeamAI context when it helps.
+If repository code conflicts with a note below, trust the repository state.
+
+## Repository Background
+- Repo profile has not been scanned yet.
+
+## Stable Project Rules
+- No promoted rules yet.
+
+## Stable Learned Knowledge
+- No promoted knowledge yet.
+</teamai-context>

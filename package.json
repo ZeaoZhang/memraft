@@ -1,0 +1,17 @@
+{
+  "name": "teamai-local-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone local-first TeamAI knowledge extraction MVP",
+  "bin": {
+    "teamai-local": "./bin/teamai-local.js"
+  },
+  "scripts": {
+    "start": "node ./bin/teamai-local.js --help",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.17.0"
+  }
+}

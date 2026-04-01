@@ -1,0 +1,15 @@
+# Compiled TeamAI Spec
+
+This file is compiled from repo facts plus promoted TeamAI rules.
+
+## Repository Background
+
+- Repo profile has not been scanned yet.
+
+## Stable Project Rules
+
+- No promoted rules yet.
+
+## Stable Learned Knowledge
+
+- No promoted knowledge yet.
