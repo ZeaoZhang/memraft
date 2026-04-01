@@ -71,10 +71,10 @@ export async function printStatus(options = {}) {
   console.log("");
   console.log("Knowledge:");
   console.log(
-    `- memory: total=${knowledge.total}, promoted=${knowledge.promoted}, candidates=${knowledge.candidates}`,
+    `- memory: total=${knowledge.total}, promoted=${knowledge.promoted}, candidates=${knowledge.candidates}, invalidated=${knowledge.invalidated}`,
   );
   console.log(
-    `- candidate spec: total=${candidateSpec.total}, promoted=${candidateSpec.promoted}, candidates=${candidateSpec.candidates}`,
+    `- candidate spec: total=${candidateSpec.total}, promoted=${candidateSpec.promoted}, candidates=${candidateSpec.candidates}, invalidated=${candidateSpec.invalidated}`,
   );
   console.log("");
   console.log("Generated:");

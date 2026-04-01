@@ -100,6 +100,10 @@ TeamAI now compiles three layers automatically:
 - promoted learned rules from repeated evidence
 - injectable session/tool context derived from both
 
+Promoted rules now carry typed metadata such as `kind`, `scope`, `paths`,
+`sourceEvidenceIds`, and lifecycle state, so TeamAI can invalidate stale rules
+when the repository drifts.
+
 The primary path now happens before shutdown: a `Stop` hook blocks once, asks
 Claude to launch `teamai-memory-summarizer`, and persists its strict JSON at
 `SubagentStop`. If that path never completes, `SessionEnd` keeps the captured
@@ -130,6 +134,7 @@ This repository currently provides:
 - Claude hook integration
 - stop-time summary capture with session-end fallback
 - local promotion logic
+- typed rule metadata with repo reconciliation
 - local inspection commands
 - structured rule store and compiled spec artifacts
 

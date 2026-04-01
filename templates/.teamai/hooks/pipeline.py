@@ -76,6 +76,63 @@ DEFERRED_KNOWLEDGE_HINTS = (
     " part of ",
 )
 FILE_PATH_PATTERN = re.compile(r"(?:^|[\s`\"'])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.[A-Za-z0-9_-]+)")
+RULE_TOOL_PATTERNS = [
+    ("claude-code", ("claude code", "claude")),
+    ("codex", ("codex",)),
+    ("gemini-cli", ("gemini cli", "gemini")),
+    ("opencode", ("opencode", "open code")),
+    ("teamai", ("teamai",)),
+    ("git", ("git",)),
+    ("pnpm", ("pnpm",)),
+    ("npm", ("npm",)),
+    ("yarn", ("yarn",)),
+    ("bun", ("bun",)),
+    ("python", ("python", "pyproject", "pip")),
+    ("node", ("node", "javascript", "typescript")),
+]
+RULE_REQUIREMENT_ALIASES = {
+    "packageManagers": {
+        "pnpm": "pnpm",
+        "npm": "npm",
+        "yarn": "yarn",
+        "bun": "bun",
+    },
+    "languages": {
+        "typescript": "typescript",
+        "javascript": "javascript",
+        "python": "python",
+        "rust": "rust",
+        "go": "go",
+    },
+    "frameworks": {
+        "next js": "Next.js",
+        "react": "React",
+        "vue": "Vue",
+        "svelte": "Svelte",
+        "astro": "Astro",
+        "express": "Express",
+        "fastify": "Fastify",
+        "nestjs": "NestJS",
+        "nest js": "NestJS",
+    },
+    "tooling": {
+        "typescript": "TypeScript",
+        "biome": "Biome",
+        "prettier": "Prettier",
+        "eslint": "ESLint",
+        "vitest": "Vitest",
+        "jest": "Jest",
+        "playwright": "Playwright",
+        "turborepo": "Turborepo",
+        "turbo": "Turborepo",
+        "nx": "Nx",
+    },
+    "workspaceTypes": {
+        "monorepo": "monorepo",
+        "single package": "single-package",
+        "single-package": "single-package",
+    },
+}
 
 
 def now_iso() -> str:
@@ -814,6 +871,88 @@ def clean_bullets(value: object) -> list[str]:
     return cleaned_items
 
 
+def merge_string_lists(*values: object) -> list[str]:
+    merged: list[str] = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not isinstance(item, str):
+                continue
+            cleaned = item.strip()
+            if not cleaned or cleaned in seen:
+                continue
+            seen.add(cleaned)
+            merged.append(cleaned)
+    return merged
+
+
+def extract_rule_paths(text: str) -> list[str]:
+    paths = [match.strip().strip('"').strip("'") for match in FILE_PATH_PATTERN.findall(text)]
+    return unique_strings(paths)
+
+
+def detect_rule_tool(text: str) -> str:
+    normalized = normalize_text(text)
+    for tool_name, aliases in RULE_TOOL_PATTERNS:
+        for alias in aliases:
+            if alias in normalized:
+                return tool_name
+    return ""
+
+
+def collect_rule_requirements(text: str) -> dict[str, list[str]]:
+    normalized = normalize_text(text)
+    requirements: dict[str, list[str]] = {}
+    for key, alias_map in RULE_REQUIREMENT_ALIASES.items():
+        matched: list[str] = []
+        for alias, canonical in alias_map.items():
+            if alias in normalized:
+                matched.append(canonical)
+        if matched:
+            requirements[key] = unique_strings(matched)
+    return requirements
+
+
+def infer_rule_kind(
+    text: str,
+    collection_name: str,
+    paths: list[str],
+) -> str:
+    normalized = normalize_text(text)
+    if collection_name == "candidateSpec":
+        if paths:
+            return "path-rule"
+        if any(keyword in normalized for keyword in DEFERRED_SPEC_KEYWORDS):
+            return "workflow"
+        return "rule"
+
+    if paths:
+        return "path-fact"
+    if any(hint in f" {normalized} " for hint in DEFERRED_KNOWLEDGE_HINTS):
+        return "repo-fact"
+    return "knowledge"
+
+
+def infer_rule_scope(paths: list[str]) -> str:
+    if paths:
+        return "path"
+    return "repo"
+
+
+def build_rule_metadata(text: str, collection_name: str) -> dict[str, object]:
+    paths = extract_rule_paths(text)
+    return {
+        "collection": collection_name,
+        "kind": infer_rule_kind(text, collection_name, paths),
+        "scope": infer_rule_scope(paths),
+        "paths": paths,
+        "tool": detect_rule_tool(text),
+        "requires": collect_rule_requirements(text),
+    }
+
+
 def split_deferred_sentences(text: str) -> list[str]:
     if not text.strip():
         return []
@@ -994,6 +1133,178 @@ def calculate_confidence(average_score: int, evidence_count: int) -> float:
     return round(min(confidence, 1.0), 2)
 
 
+def get_record_lifecycle_status(record: dict[str, object]) -> str:
+    status_value = record.get("lifecycleStatus", "")
+    if isinstance(status_value, str) and status_value in {"active", "invalidated"}:
+        return status_value
+    invalidated_at = record.get("invalidatedAt", "")
+    if isinstance(invalidated_at, str) and invalidated_at:
+        return "invalidated"
+    return "active"
+
+
+def is_record_invalidated(record: dict[str, object]) -> bool:
+    return get_record_lifecycle_status(record) == "invalidated"
+
+
+def ensure_rule_record_shape(record: dict[str, object], collection_name: str) -> bool:
+    changed = False
+    text_value = record.get("text", "")
+    text = text_value if isinstance(text_value, str) else ""
+    metadata = build_rule_metadata(text, collection_name)
+
+    for key in ("collection", "kind", "scope", "tool"):
+        value = metadata.get(key, "")
+        if record.get(key) != value:
+            record[key] = value
+            changed = True
+
+    for key in ("paths",):
+        value = metadata.get(key, [])
+        if record.get(key) != value:
+            record[key] = value
+            changed = True
+
+    requires_value = metadata.get("requires", {})
+    if record.get("requires") != requires_value:
+        record["requires"] = requires_value
+        changed = True
+
+    source_evidence_ids = merge_string_lists(record.get("sourceEvidenceIds", []))
+    if record.get("sourceEvidenceIds") != source_evidence_ids:
+        record["sourceEvidenceIds"] = source_evidence_ids
+        changed = True
+
+    lifecycle_status = get_record_lifecycle_status(record)
+    if record.get("lifecycleStatus") != lifecycle_status:
+        record["lifecycleStatus"] = lifecycle_status
+        changed = True
+
+    defaults = {
+        "invalidatedAt": "",
+        "invalidationReason": "",
+        "lastValidatedAt": "",
+        "demotedAt": "",
+        "restoredAt": "",
+    }
+    for key, value in defaults.items():
+        current = record.get(key)
+        if not isinstance(current, str):
+            record[key] = value
+            changed = True
+
+    return changed
+
+
+def reconcile_rule_record(
+    record: dict[str, object],
+    collection_name: str,
+    repo_root: Path,
+    repo_profile: dict[str, object],
+    promotion_rules: dict[str, object],
+    validated_at: str,
+) -> bool:
+    changed = ensure_rule_record_shape(record, collection_name)
+    reasons: list[str] = []
+
+    paths_value = record.get("paths", [])
+    paths = [item for item in paths_value if isinstance(item, str) and item] if isinstance(paths_value, list) else []
+    missing_paths = [path_value for path_value in paths if not (repo_root / path_value).exists()]
+    if missing_paths:
+        reasons.append(f"missing paths: {', '.join(missing_paths[:3])}")
+
+    requirements = record.get("requires", {})
+    if isinstance(requirements, dict):
+        repo_arrays = {
+            "packageManagers": repo_profile.get("packageManagers", []),
+            "languages": repo_profile.get("languages", []),
+            "frameworks": repo_profile.get("frameworks", []),
+            "tooling": repo_profile.get("tooling", []),
+        }
+        for key, repo_values in repo_arrays.items():
+            required_values = requirements.get(key, [])
+            if not isinstance(required_values, list) or not required_values:
+                continue
+            available = {
+                str(item).strip().lower()
+                for item in repo_values
+                if isinstance(item, str) and item.strip()
+            } if isinstance(repo_values, list) else set()
+            missing = [
+                item
+                for item in required_values
+                if isinstance(item, str) and item.strip() and item.strip().lower() not in available
+            ]
+            if missing:
+                reasons.append(f"{key} no longer match: {', '.join(missing[:3])}")
+
+        required_workspace = requirements.get("workspaceTypes", [])
+        workspace_type = get_string_value(repo_profile, "workspaceType").lower()
+        if isinstance(required_workspace, list) and required_workspace:
+            missing = [
+                item
+                for item in required_workspace
+                if isinstance(item, str) and item.strip() and item.strip().lower() != workspace_type
+            ]
+            if missing:
+                reasons.append(f"workspace type changed: {', '.join(missing[:3])}")
+
+    invalidated = bool(reasons)
+    previous_lifecycle = get_record_lifecycle_status(record)
+    previous_promotion = get_string_value(record, "promotionStatus") or "candidate"
+
+    if invalidated:
+        reason = "; ".join(reasons)
+        if record.get("lastValidatedAt") != validated_at:
+            record["lastValidatedAt"] = validated_at
+            changed = True
+        if previous_lifecycle != "invalidated":
+            record["invalidatedAt"] = validated_at
+            record["restoredAt"] = ""
+            changed = True
+        if record.get("invalidationReason") != reason:
+            record["invalidationReason"] = reason
+            changed = True
+        if record.get("lifecycleStatus") != "invalidated":
+            record["lifecycleStatus"] = "invalidated"
+            changed = True
+        if previous_promotion == "promoted":
+            record["promotionStatus"] = "candidate"
+            record["demotedAt"] = validated_at
+            changed = True
+        return changed
+
+    if previous_lifecycle == "invalidated":
+        if record.get("lastValidatedAt") != validated_at:
+            record["lastValidatedAt"] = validated_at
+            changed = True
+        if record.get("invalidatedAt") != "":
+            record["invalidatedAt"] = ""
+            changed = True
+        if record.get("invalidationReason") != "":
+            record["invalidationReason"] = ""
+            changed = True
+        if record.get("lifecycleStatus") != "active":
+            record["lifecycleStatus"] = "active"
+            changed = True
+        if record.get("restoredAt") != validated_at:
+            record["restoredAt"] = validated_at
+            changed = True
+
+    if update_promotion_status(record, promotion_rules, validated_at):
+        if record.get("lastValidatedAt") != validated_at:
+            record["lastValidatedAt"] = validated_at
+            changed = True
+        changed = True
+    elif record.get("promotionStatus") != previous_promotion:
+        if record.get("lastValidatedAt") != validated_at:
+            record["lastValidatedAt"] = validated_at
+            changed = True
+        changed = True
+
+    return changed
+
+
 def update_promotion_status(
     record: dict[str, object],
     promotion_rules: dict[str, object],
@@ -1028,6 +1339,8 @@ def update_promotion_status(
     )
 
     qualifies = (
+        not is_record_invalidated(record)
+        and
         occurrences >= minimum_occurrences
         and evidence_count >= minimum_evidence
         and confidence >= minimum_confidence
@@ -1096,24 +1409,41 @@ def rank_records(records: dict[str, object]) -> list[dict[str, object]]:
     return sorted(coerced_records, key=sort_key)
 
 
-def split_ranked_records(records: dict[str, object]) -> tuple[list[dict[str, object]], list[dict[str, object]]]:
+def partition_ranked_records(
+    records: dict[str, object],
+) -> tuple[list[dict[str, object]], list[dict[str, object]], list[dict[str, object]]]:
     promoted_records: list[dict[str, object]] = []
     candidate_records: list[dict[str, object]] = []
+    invalidated_records: list[dict[str, object]] = []
     for record in rank_records(records):
+        if is_record_invalidated(record):
+            invalidated_records.append(record)
+            continue
         status_value = record.get("promotionStatus", "candidate")
         status = status_value if isinstance(status_value, str) else "candidate"
         if status == "promoted":
             promoted_records.append(record)
         else:
             candidate_records.append(record)
-    return promoted_records, candidate_records
+    return promoted_records, candidate_records, invalidated_records
 
 
-def summarize_record_groups(records: dict[str, object]) -> dict[str, int]:
-    promoted_records, candidate_records = split_ranked_records(records)
+def summarize_record_groups(records: dict[str, object]) -> dict[str, object]:
+    promoted_records, candidate_records, invalidated_records = partition_ranked_records(records)
+    kind_counts: dict[str, int] = {}
+    scope_counts: dict[str, int] = {}
+    for record in rank_records(records):
+        kind = get_string_value(record, "kind") or "unknown"
+        scope = get_string_value(record, "scope") or "repo"
+        kind_counts[kind] = kind_counts.get(kind, 0) + 1
+        scope_counts[scope] = scope_counts.get(scope, 0) + 1
     return {
         "promotedCount": len(promoted_records),
         "candidateCount": len(candidate_records),
+        "invalidatedCount": len(invalidated_records),
+        "activeCount": len(promoted_records) + len(candidate_records),
+        "kindCounts": kind_counts,
+        "scopeCounts": scope_counts,
     }
 
 
@@ -1135,7 +1465,9 @@ def format_record_line(record: dict[str, object], *, include_meta: bool) -> str:
         if isinstance(confidence_value, (int, float))
         else 0.0
     )
-    return f"- [{grade}|{score}|x{occurrences}|c{confidence:.2f}] {text}"
+    kind = get_string_value(record, "kind") or "rule"
+    scope = get_string_value(record, "scope") or "repo"
+    return f"- [{grade}|{score}|x{occurrences}|c{confidence:.2f}|{kind}|{scope}] {text}"
 
 
 def render_profile_lines(repo_profile: dict[str, object], *, compact_commands: bool) -> list[str]:
@@ -1182,7 +1514,7 @@ def render_promoted_lines(
     limit: int,
     empty_message: str,
 ) -> list[str]:
-    promoted_records, _candidate_records = split_ranked_records(records)
+    promoted_records, _candidate_records, _invalidated_records = partition_ranked_records(records)
     if not promoted_records:
         return [empty_message]
     return [
@@ -1350,6 +1682,7 @@ def render_shared_injection(
 def merge_collection(
     records: dict[str, object],
     bullets: list[str],
+    collection_name: str,
     created_at: str,
     event_id: str,
     quality: dict[str, object],
@@ -1378,6 +1711,7 @@ def merge_collection(
         if record is None:
             average_score = score
             confidence = calculate_confidence(average_score, 1)
+            metadata = build_rule_metadata(bullet, collection_name)
             record = {
                 "fingerprint": fingerprint,
                 "text": bullet,
@@ -1393,6 +1727,19 @@ def merge_collection(
                 "promotionStatus": "candidate",
                 "firstPromotedAt": "",
                 "latestEvidenceId": event_id,
+                "sourceEvidenceIds": [event_id],
+                "collection": collection_name,
+                "kind": metadata["kind"],
+                "scope": metadata["scope"],
+                "paths": metadata["paths"],
+                "tool": metadata["tool"],
+                "requires": metadata["requires"],
+                "lifecycleStatus": "active",
+                "invalidatedAt": "",
+                "invalidationReason": "",
+                "lastValidatedAt": "",
+                "demotedAt": "",
+                "restoredAt": "",
             }
             if update_promotion_status(record, promotion_rules, created_at):
                 stats["promoted"] += 1
@@ -1400,8 +1747,13 @@ def merge_collection(
             stats["added"] += 1
             continue
 
+        ensure_rule_record_shape(record, collection_name)
         record["lastSeenAt"] = created_at
         record["latestEvidenceId"] = event_id
+        record["sourceEvidenceIds"] = merge_string_lists(
+            record.get("sourceEvidenceIds", []),
+            [event_id],
+        )
         occurrences_value = record.get("occurrences", 0)
         occurrences = occurrences_value if isinstance(occurrences_value, int) else 0
         record["occurrences"] = occurrences + 1
@@ -1433,11 +1785,18 @@ def merge_collection(
             score == existing_score and len(bullet) > len(existing_text)
         )
         if should_replace:
+            metadata = build_rule_metadata(bullet, collection_name)
             if bullet != existing_text:
                 stats["updated"] += 1
             record["text"] = bullet
             record["bestScore"] = score
             record["bestGrade"] = grade
+            record["collection"] = collection_name
+            record["kind"] = metadata["kind"]
+            record["scope"] = metadata["scope"]
+            record["paths"] = metadata["paths"]
+            record["tool"] = metadata["tool"]
+            record["requires"] = metadata["requires"]
         else:
             stats["skipped"] += 1
 
@@ -1464,7 +1823,7 @@ def render_collection_markdown(
     records: dict[str, object],
     promotion_rules: dict[str, object],
 ) -> str:
-    promoted_records, candidate_records = split_ranked_records(records)
+    promoted_records, candidate_records, invalidated_records = partition_ranked_records(records)
 
     minimum_occurrences_value = promotion_rules.get("minimumOccurrences", 2)
     minimum_occurrences = (
@@ -1509,6 +1868,8 @@ def render_collection_markdown(
     append_records(promoted_records, "- No promoted entries yet.")
     lines.extend(["", "## Candidate Queue", ""])
     append_records(candidate_records, "- No candidate entries yet.")
+    lines.extend(["", "## Invalidated Entries", ""])
+    append_records(invalidated_records, "- No invalidated entries.")
 
     return "\n".join(lines).strip() + "\n"
 
@@ -1558,6 +1919,58 @@ def write_merge_outputs(
             promotion_rules,
         ),
     )
+
+
+def reconcile_merge_index(
+    repo_root: Path,
+    merge_index: dict[str, object],
+    repo_profile: dict[str, object],
+    promotion_rules: dict[str, object],
+) -> bool:
+    changed = False
+    validated_at = now_iso()
+    for collection_name in ("knowledge", "candidateSpec"):
+        records_value = merge_index.get(collection_name)
+        records = records_value if isinstance(records_value, dict) else {}
+        for value in records.values():
+            record = coerce_record(value)
+            if record is None:
+                continue
+            if reconcile_rule_record(
+                record,
+                collection_name,
+                repo_root,
+                repo_profile,
+                promotion_rules,
+                validated_at,
+            ):
+                changed = True
+        merge_index[collection_name] = records
+    return changed
+
+
+def build_rule_store_collection(records: dict[str, object]) -> dict[str, object]:
+    promoted_records, candidate_records, invalidated_records = partition_ranked_records(records)
+    summary = summarize_record_groups(records)
+    return {
+        **summary,
+        "promotedFingerprints": [
+            get_string_value(record, "fingerprint")
+            for record in promoted_records
+            if get_string_value(record, "fingerprint")
+        ],
+        "candidateFingerprints": [
+            get_string_value(record, "fingerprint")
+            for record in candidate_records
+            if get_string_value(record, "fingerprint")
+        ],
+        "invalidatedFingerprints": [
+            get_string_value(record, "fingerprint")
+            for record in invalidated_records
+            if get_string_value(record, "fingerprint")
+        ],
+        "records": records,
+    }
 
 
 def build_compiled_state(
@@ -1630,6 +2043,7 @@ def write_compiled_outputs(
     latest_evidence: dict[str, object] | None = None,
     repo_profile: dict[str, object] | None = None,
 ) -> None:
+    promotion_rules = get_promotion_rules(config)
     knowledge_records = merge_index.get("knowledge")
     spec_records = merge_index.get("candidateSpec")
     knowledge_dict = knowledge_records if isinstance(knowledge_records, dict) else {}
@@ -1638,20 +2052,26 @@ def write_compiled_outputs(
         repo_profile if isinstance(repo_profile, dict) else scan_repo_profile(repo_root, config)
     )
     next_repo_profile = stabilize_repo_profile(repo_root, config, next_repo_profile)
+    if reconcile_merge_index(
+        repo_root,
+        merge_index,
+        next_repo_profile,
+        promotion_rules,
+    ):
+        write_merge_outputs(repo_root, config, merge_index, promotion_rules)
+        knowledge_records = merge_index.get("knowledge")
+        spec_records = merge_index.get("candidateSpec")
+        knowledge_dict = knowledge_records if isinstance(knowledge_records, dict) else {}
+        spec_dict = spec_records if isinstance(spec_records, dict) else {}
 
     rule_store = {
         "version": 1,
+        "recordSchemaVersion": 2,
         "updatedAt": now_iso(),
         "repoProfile": next_repo_profile,
         "collections": {
-            "knowledge": {
-                **summarize_record_groups(knowledge_dict),
-                "records": knowledge_dict,
-            },
-            "spec": {
-                **summarize_record_groups(spec_dict),
-                "records": spec_dict,
-            },
+            "knowledge": build_rule_store_collection(knowledge_dict),
+            "spec": build_rule_store_collection(spec_dict),
         },
     }
 
@@ -1689,6 +2109,7 @@ def write_compiled_outputs(
 def ensure_compiled_artifacts(repo_root: Path) -> None:
     config = load_config(repo_root)
     merge_index = load_merge_index(repo_root)
+    promotion_rules = get_promotion_rules(config)
     latest = read_artifact_json(
         repo_root,
         config,
@@ -1697,6 +2118,8 @@ def ensure_compiled_artifacts(repo_root: Path) -> None:
     )
     repo_profile = scan_repo_profile(repo_root, config)
     repo_profile = stabilize_repo_profile(repo_root, config, repo_profile)
+    if reconcile_merge_index(repo_root, merge_index, repo_profile, promotion_rules):
+        write_merge_outputs(repo_root, config, merge_index, promotion_rules)
     compiled_state = build_compiled_state(config, merge_index, repo_profile, latest)
     if has_fresh_compiled_outputs(
         repo_root,
@@ -2079,6 +2502,7 @@ def persist_summary(
         merge_index["knowledge"], knowledge_stats = merge_collection(
             knowledge_dict,
             knowledge,
+            "knowledge",
             created_at,
             event_id,
             quality,
@@ -2087,6 +2511,7 @@ def persist_summary(
         merge_index["candidateSpec"], candidate_stats = merge_collection(
             candidate_dict,
             candidate_spec,
+            "candidateSpec",
             created_at,
             event_id,
             quality,

@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -204,6 +205,11 @@ function completeStopSummary(repo, sessionId, options = {}) {
   const subagentStopCommand = getFirstHookCommand(settings, "SubagentStop");
   const assistantMessage =
     "This is a detailed assistant response about the completed work. ".repeat(12);
+  const summaryPayload = options.summaryPayload ?? {
+    summary: "Stable summary.",
+    knowledge: ["src/app.js is part of the project runtime surface"],
+    candidate_spec: ["Keep TeamAI summaries JSON-only and subagent-driven"],
+  };
 
   const stopOutput = runJsonHook(stopCommand, {
     cwd: repo,
@@ -235,11 +241,7 @@ function completeStopSummary(repo, sessionId, options = {}) {
       session_id: sessionId,
       subagent_type: SUMMARY_AGENT_NAME,
       subagent_id: "agent-1",
-      last_assistant_message: JSON.stringify({
-        summary: "Stable summary.",
-        knowledge: ["src/app.js is part of the project runtime surface"],
-        candidate_spec: ["Keep TeamAI summaries JSON-only and subagent-driven"],
-      }),
+      last_assistant_message: JSON.stringify(summaryPayload),
     },
   });
 
@@ -511,6 +513,105 @@ test("promoted rules are compiled into generated spec and tool injection", () =>
   );
   assert.match(toolInjection, /Recent evidence:/);
   assert.equal(latest.merge.eligible, true);
+});
+
+test("rule store exports typed metadata for promoted records", () => {
+  const repo = makeRepo();
+  runCli(["init", repo]);
+  seedWorktree(repo);
+
+  const configPath = path.join(repo, ".teamai", "config.json");
+  const config = readJson(configPath);
+  config.merge.minimumGrade = "D";
+  config.merge.promotion.minimumOccurrences = 1;
+  config.merge.promotion.minimumEvidenceCount = 1;
+  config.merge.promotion.minimumConfidence = 0;
+  writeJson(configPath, config);
+
+  const { latest } = completeStopSummary(repo, "sess-typed", {
+    summaryPayload: {
+      summary: "Stable summary.",
+      knowledge: ["src/app.js is part of the project runtime surface."],
+      candidate_spec: ["src/app.js should stay on the project runtime surface."],
+    },
+  });
+
+  const ruleStore = readJson(getRuleStorePath(repo));
+  assert.equal(ruleStore.recordSchemaVersion, 2);
+  assert.equal(ruleStore.collections.knowledge.invalidatedCount, 0);
+  assert.equal(ruleStore.collections.spec.invalidatedCount, 0);
+
+  const knowledgeRecord = Object.values(ruleStore.collections.knowledge.records).find(
+    (record) => record.text === "src/app.js is part of the project runtime surface.",
+  );
+  const specRecord = Object.values(ruleStore.collections.spec.records).find(
+    (record) => record.text === "src/app.js should stay on the project runtime surface.",
+  );
+
+  assert.equal(knowledgeRecord.collection, "knowledge");
+  assert.equal(knowledgeRecord.kind, "path-fact");
+  assert.equal(knowledgeRecord.scope, "path");
+  assert.deepEqual(knowledgeRecord.paths, ["src/app.js"]);
+  assert.deepEqual(knowledgeRecord.sourceEvidenceIds, [latest.eventId]);
+  assert.equal(knowledgeRecord.lifecycleStatus, "active");
+
+  assert.equal(specRecord.collection, "candidateSpec");
+  assert.equal(specRecord.kind, "path-rule");
+  assert.equal(specRecord.scope, "path");
+  assert.deepEqual(specRecord.paths, ["src/app.js"]);
+  assert.deepEqual(specRecord.sourceEvidenceIds, [latest.eventId]);
+  assert.equal(specRecord.lifecycleStatus, "active");
+});
+
+test("repo reconciliation invalidates promoted path rules after repo drift", () => {
+  const repo = makeRepo();
+  runCli(["init", repo]);
+  seedWorktree(repo);
+
+  const configPath = path.join(repo, ".teamai", "config.json");
+  const config = readJson(configPath);
+  config.merge.minimumGrade = "D";
+  config.merge.promotion.minimumOccurrences = 1;
+  config.merge.promotion.minimumEvidenceCount = 1;
+  config.merge.promotion.minimumConfidence = 0;
+  writeJson(configPath, config);
+
+  completeStopSummary(repo, "sess-drift", {
+    summaryPayload: {
+      summary: "Stable summary.",
+      knowledge: ["src/app.js is part of the project runtime surface."],
+      candidate_spec: ["src/app.js should stay on the project runtime surface."],
+    },
+  });
+
+  unlinkSync(path.join(repo, "src", "app.js"));
+
+  const settings = readJson(path.join(repo, ".claude", "settings.json"));
+  const sessionStartCommand = getFirstHookCommand(settings, "SessionStart");
+  runJsonHook(sessionStartCommand, {
+    cwd: repo,
+    inputData: { cwd: repo },
+  });
+
+  const ruleStore = readJson(getRuleStorePath(repo));
+  const compiledSpec = readFileSync(getCompiledSpecPath(repo), "utf8");
+  const specRecord = Object.values(ruleStore.collections.spec.records).find(
+    (record) => record.text === "src/app.js should stay on the project runtime surface.",
+  );
+  const knowledgeRecord = Object.values(ruleStore.collections.knowledge.records).find(
+    (record) => record.text === "src/app.js is part of the project runtime surface.",
+  );
+
+  assert.equal(ruleStore.collections.knowledge.invalidatedCount, 1);
+  assert.equal(ruleStore.collections.spec.invalidatedCount, 1);
+  assert.equal(ruleStore.collections.spec.promotedCount, 0);
+  assert.equal(specRecord.lifecycleStatus, "invalidated");
+  assert.equal(specRecord.promotionStatus, "candidate");
+  assert.match(specRecord.invalidationReason, /missing paths/);
+  assert.match(specRecord.invalidatedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.equal(knowledgeRecord.lifecycleStatus, "invalidated");
+  assert.equal(knowledgeRecord.promotionStatus, "candidate");
+  assert.doesNotMatch(compiledSpec, /src\/app\.js should stay on the project runtime surface/);
 });
 
 test("custom artifact and outbox paths stay functional when kept inside .teamai", () => {

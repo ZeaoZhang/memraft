@@ -110,6 +110,11 @@ Each extracted bullet is stored with:
 
 - a normalized fingerprint
 - canonical text
+- a typed `kind`
+- a `scope`
+- matched `paths`
+- inferred repo/tool requirements
+- source evidence ids
 - first seen / last seen timestamps
 - occurrence count
 - evidence count
@@ -117,6 +122,10 @@ Each extracted bullet is stored with:
 - average score
 - confidence
 - promotion status
+- lifecycle status
+
+When repo facts drift, TeamAI can invalidate a previously promoted rule and
+demote it out of future prompt injection until the repo matches again.
 
 ### Promotion rule
 
@@ -211,13 +220,14 @@ This file contains:
 - `Promotion Rules`
 - `Promoted Entries`
 - `Candidate Queue`
+- `Invalidated Entries`
 
 Promoted entries are the only entries that get injected.
 
 Each rendered item includes compact metadata:
 
 ```text
-[B|78|x2|c0.76] TeamAI should only inject promoted entries back into context.
+[B|78|x2|c0.76|workflow|repo] TeamAI should only inject promoted entries back into context.
 ```
 
 Meaning:
@@ -226,6 +236,8 @@ Meaning:
 - `78` - best score
 - `x2` - occurrence count
 - `c0.76` - current confidence
+- `workflow` - inferred rule kind
+- `repo` - inferred rule scope
 
 ### `specs/candidate-spec.md`
 

@@ -174,8 +174,15 @@ export function summarizeCollection(records) {
   );
   let promoted = 0;
   let candidates = 0;
+  let invalidated = 0;
 
   for (const value of values) {
+    const lifecycleStatus =
+      typeof value.lifecycleStatus === "string" ? value.lifecycleStatus : "active";
+    if (lifecycleStatus === "invalidated") {
+      invalidated += 1;
+      continue;
+    }
     const status =
       typeof value.promotionStatus === "string"
         ? value.promotionStatus
@@ -191,6 +198,7 @@ export function summarizeCollection(records) {
     total: values.length,
     promoted,
     candidates,
+    invalidated,
   };
 }
 
