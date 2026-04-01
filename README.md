@@ -17,7 +17,7 @@ needed to:
 2. install a project summary subagent under `.claude/agents/`
 3. inject promoted local knowledge into Claude sessions
 4. capture reusable knowledge through a `Stop -> subagent -> persist` flow
-5. fall back at `SessionEnd` only if no completed stop summary exists
+5. defer session-end summarization in the background if the stop summary never completes
 6. promote repeated knowledge into reusable local memory
 7. compile promoted rules into reusable injectable spec files
 
@@ -102,8 +102,9 @@ TeamAI now compiles three layers automatically:
 
 The primary path now happens before shutdown: a `Stop` hook blocks once, asks
 Claude to launch `teamai-memory-summarizer`, and persists its strict JSON at
-`SubagentStop`. `SessionEnd` is fallback-only and exists to avoid losing the
-session if that stop-time path never completes.
+`SubagentStop`. If that path never completes, `SessionEnd` keeps the captured
+request context and finishes a deferred background summary instead of dropping
+straight to empty fallback evidence.
 
 Evidence excludes tool-managed paths such as `.teamai/`, `.omc/`, `.claude/`,
 and `.git/`, and sync outbox envelopes are only written when `sync.enabled` is
@@ -111,6 +112,9 @@ true.
 
 TeamAI snapshots changed files and diff state when it creates a stop/session-end
 event, so async persistence still reflects the original session state.
+
+Generated artifacts are also compile-cached, so repeated hot-path hooks do not
+rewrite spec and injection files when their inputs are unchanged.
 
 Configured artifact and outbox paths are now constrained to `.teamai/`, so
 custom nesting is allowed but path traversal outside the runtime directory is

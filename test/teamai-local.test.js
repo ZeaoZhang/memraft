@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  statSync,
   writeFileSync,
 } from "node:fs";
 import os from "node:os";
@@ -124,6 +125,10 @@ function getCompiledSpecPath(repo) {
     config.artifacts?.compiledSpecPath,
     "generated/spec.md",
   );
+}
+
+function getCompiledStatePath(repo) {
+  return path.join(repo, ".teamai", "state", "compiled-state.json");
 }
 
 function getSessionInjectionPath(repo) {
@@ -439,6 +444,38 @@ test("session_start compiles repo profile and injectable context automatically",
   assert.equal(status.generated.compiledSpec, true);
 });
 
+test("session_start skips recompilation when compiled inputs are unchanged", async () => {
+  const repo = makeRepo();
+  seedWorktree(repo);
+  runCli(["init", repo]);
+
+  const settings = readJson(path.join(repo, ".claude", "settings.json"));
+  const sessionStartCommand = getFirstHookCommand(settings, "SessionStart");
+
+  runJsonHook(sessionStartCommand, {
+    cwd: repo,
+    inputData: { cwd: repo },
+  });
+
+  const compiledSpecPath = getCompiledSpecPath(repo);
+  const compiledStatePath = getCompiledStatePath(repo);
+  const firstSpecStat = statSync(compiledSpecPath);
+  const firstCompiledState = readJson(compiledStatePath);
+
+  await new Promise((resolve) => setTimeout(resolve, 25));
+
+  runJsonHook(sessionStartCommand, {
+    cwd: repo,
+    inputData: { cwd: repo },
+  });
+
+  const secondSpecStat = statSync(compiledSpecPath);
+  const secondCompiledState = readJson(compiledStatePath);
+
+  assert.equal(secondSpecStat.mtimeMs, firstSpecStat.mtimeMs);
+  assert.equal(secondCompiledState.inputHash, firstCompiledState.inputHash);
+});
+
 test("promoted rules are compiled into generated spec and tool injection", () => {
   const repo = makeRepo();
   runCli(["init", repo]);
@@ -709,6 +746,7 @@ test("stop and subagent hooks persist JSON summaries, filter internal files, and
   assert.ok(!latest.files.some((file) => file.startsWith(".teamai/")));
   assert.equal(latest.source.worktreeSnapshotUsed, true);
   assert.match(latest.source.worktreeSnapshotCapturedAt, /^\d{4}-\d{2}-\d{2}T/);
+  assert.ok(latest.source.diffChars > 0);
 
   const requests = Object.values(summaryState.requests);
   assert.equal(requests.length, 1);
@@ -720,6 +758,79 @@ test("stop and subagent hooks persist JSON summaries, filter internal files, and
     (name) => name !== ".gitkeep",
   );
   assert.deepEqual(outboxFiles, []);
+});
+
+test("session_end completes pending stop summaries with deferred extraction", () => {
+  const repo = makeRepo();
+  runCli(["init", repo]);
+  seedWorktree(repo);
+
+  const settings = readJson(path.join(repo, ".claude", "settings.json"));
+  const stopCommand = getFirstHookCommand(settings, "Stop");
+  const assistantMessage = [
+    "Keep TeamAI summaries JSON-only and subagent-driven.",
+    "src/app.js is part of the project runtime surface.",
+  ].join(" ");
+
+  const stopOutput = runJsonHook(stopCommand, {
+    cwd: repo,
+    inputData: {
+      cwd: repo,
+      session_id: "sess-deferred",
+      last_assistant_message: assistantMessage,
+    },
+  });
+  assert.equal(stopOutput.decision, "block");
+
+  const statePath = path.join(repo, ".teamai", "state", "summary-state.json");
+  const stateBefore = readJson(statePath);
+  const request = Object.values(stateBefore.requests)[0];
+  assert.equal(request.status, "pending");
+
+  const eventPath = path.join(
+    repo,
+    ".teamai",
+    "state",
+    "session-events",
+    "manual-deferred-event.json",
+  );
+  writeJson(eventPath, {
+    eventId: "manual-deferred-event",
+    eventKind: "session_end_fallback",
+    createdAt: "2026-03-26T08:00:00Z",
+    sessionId: "sess-deferred",
+    reason: "other",
+    transcriptPath: "",
+    repoRoot: repo,
+  });
+
+  const worker = spawnSync(
+    "python3",
+    [path.join(repo, ".teamai", "hooks", "session_end.py"), "--worker", "--event-file", eventPath],
+    {
+      cwd: repo,
+      encoding: "utf8",
+    },
+  );
+  assert.equal(worker.status, 0, worker.stderr || worker.stdout);
+
+  const latest = readJson(path.join(repo, ".teamai", "evidence", "latest.json"));
+  assert.equal(latest.generator, "session-end-deferred");
+  assert.equal(latest.source.sessionEndDeferred, true);
+  assert.equal(latest.source.summaryRequestId, request.requestId);
+  assert.equal(latest.source.sessionEndEventId, "manual-deferred-event");
+  assert.match(latest.summary, /Deferred TeamAI summary captured after session end/);
+  assert.deepEqual(latest.knowledge, ["src/app.js is part of the project runtime surface."]);
+  assert.deepEqual(latest.candidateSpec, [
+    "Keep TeamAI summaries JSON-only and subagent-driven.",
+  ]);
+
+  const nextState = readJson(statePath);
+  const nextRequest = nextState.requests[request.requestId];
+  assert.equal(nextRequest.status, "completed");
+  assert.equal(nextRequest.completionMode, "session-end-deferred");
+  assert.equal(nextRequest.evidenceEventId, latest.eventId);
+  assert.equal(existsSync(eventPath), false);
 });
 
 test("session_end writes fallback evidence when no completed stop summary exists", () => {

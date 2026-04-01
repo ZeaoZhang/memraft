@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -46,6 +48,34 @@ DEFAULT_STOP_SUMMARY_CONFIG = {
     "maxAssistantExcerptChars": 2400,
     "maxFilesInReason": 12,
 }
+COMPILE_STATE_VERSION = 1
+MAX_COMPILE_CACHE_RECENT_FILES = 8
+DEFERRED_SPEC_KEYWORDS = (
+    "should",
+    "must",
+    "always",
+    "never",
+    "keep",
+    "use",
+    "prefer",
+    "avoid",
+    "return",
+    "only",
+    "do not",
+)
+DEFERRED_KNOWLEDGE_HINTS = (
+    " is ",
+    " are ",
+    " uses ",
+    " contains ",
+    " stores ",
+    " reads ",
+    " writes ",
+    " handles ",
+    " runs ",
+    " part of ",
+)
+FILE_PATH_PATTERN = re.compile(r"(?:^|[\s`\"'])((?:[A-Za-z0-9_.-]+/)*[A-Za-z0-9_.-]+\.[A-Za-z0-9_-]+)")
 
 
 def now_iso() -> str:
@@ -77,6 +107,11 @@ def run_command(
         return 1, "", str(error)
 
     return result.returncode, result.stdout, result.stderr
+
+
+def hash_json_payload(data: object) -> str:
+    payload = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def get_string_value(data: dict[str, object], *keys: str) -> str:
@@ -194,6 +229,17 @@ def build_event(
 def load_config(repo_root: Path) -> dict[str, object]:
     config = read_json(repo_root / TEAMAI_DIR / "config.json")
     return config or {}
+
+
+def get_compiled_state_path(repo_root: Path) -> Path:
+    return repo_root / TEAMAI_DIR / "state" / "compiled-state.json"
+
+
+def load_compiled_state(repo_root: Path) -> dict[str, object]:
+    state = read_json(get_compiled_state_path(repo_root))
+    if not state:
+        return {}
+    return state
 
 
 def get_capture_config(config: dict[str, object]) -> dict[str, object]:
@@ -327,6 +373,51 @@ def read_artifact_json(
     fallback: str,
 ) -> dict[str, object]:
     return read_json(get_artifact_path(repo_root, config, key, fallback)) or {}
+
+
+def get_compile_output_paths(repo_root: Path, config: dict[str, object]) -> dict[str, Path]:
+    return {
+        "repoProfile": get_artifact_path(
+            repo_root,
+            config,
+            "repoProfilePath",
+            "state/repo-profile.json",
+        ),
+        "ruleStore": get_artifact_path(
+            repo_root,
+            config,
+            "ruleStorePath",
+            "state/rule-store.json",
+        ),
+        "compiledSpec": get_artifact_path(
+            repo_root,
+            config,
+            "compiledSpecPath",
+            "generated/spec.md",
+        ),
+        "sessionStartInjection": get_artifact_path(
+            repo_root,
+            config,
+            "sessionStartInjectionPath",
+            "generated/inject/session-start.txt",
+        ),
+        "toolInjection": get_artifact_path(
+            repo_root,
+            config,
+            "toolInjectionPath",
+            "generated/inject/tool-task.txt",
+        ),
+        "subagentInjection": get_artifact_path(
+            repo_root,
+            config,
+            "subagentInjectionPath",
+            "generated/inject/subagent.txt",
+        ),
+    }
+
+
+def compile_outputs_exist(paths: dict[str, Path]) -> bool:
+    return all(path.is_file() for path in paths.values())
 
 
 def unique_strings(values: list[str]) -> list[str]:
@@ -516,6 +607,29 @@ def scan_repo_profile(repo_root: Path, config: dict[str, object]) -> dict[str, o
     }
 
 
+def stabilize_repo_profile(
+    repo_root: Path,
+    config: dict[str, object],
+    repo_profile: dict[str, object],
+) -> dict[str, object]:
+    existing = read_artifact_json(
+        repo_root,
+        config,
+        "repoProfilePath",
+        "state/repo-profile.json",
+    )
+    if not existing:
+        return repo_profile
+
+    existing_compare = dict(existing)
+    next_compare = dict(repo_profile)
+    existing_compare.pop("scannedAt", None)
+    next_compare.pop("scannedAt", None)
+    if existing_compare == next_compare:
+        return existing
+    return repo_profile
+
+
 def get_session_evidence_path(repo_root: Path, event_id: str) -> Path:
     return repo_root / TEAMAI_DIR / "evidence" / "sessions" / f"{event_id}.json"
 
@@ -562,6 +676,30 @@ def get_worktree_files(repo_root: Path, excluded_prefixes: list[str]) -> list[st
     return files
 
 
+def get_untracked_worktree_files(
+    repo_root: Path,
+    excluded_prefixes: list[str],
+) -> list[str]:
+    code, stdout, _stderr = run_command(
+        ["git", "ls-files", "--others", "--exclude-standard", "--", "."],
+        repo_root,
+    )
+    if code != 0:
+        return []
+
+    files: list[str] = []
+    seen = set()
+    for line in stdout.splitlines():
+        file_path = line.strip().strip('"')
+        if not file_path or file_path in seen:
+            continue
+        if is_excluded_path(file_path, excluded_prefixes):
+            continue
+        seen.add(file_path)
+        files.append(file_path)
+    return files
+
+
 def build_diff_command(base_command: list[str], excluded_prefixes: list[str]) -> list[str]:
     command = [*base_command, "--", "."]
     for prefix in excluded_prefixes:
@@ -589,6 +727,21 @@ def get_worktree_diff(
         code, stdout, _stderr = run_command(command, repo_root, timeout=60)
         if code == 0 and stdout.strip():
             segments.append(f"$ {' '.join(command)}\n{stdout.strip()}")
+
+    untracked_files = get_untracked_worktree_files(repo_root, excluded_prefixes)
+    if untracked_files:
+        lines = [
+            "$ git ls-files --others --exclude-standard -- .",
+            *[
+                f"?? {file_path} ({(repo_root / file_path).stat().st_size} bytes)"
+                if (repo_root / file_path).exists()
+                else f"?? {file_path}"
+                for file_path in untracked_files[:20]
+            ],
+        ]
+        if len(untracked_files) > 20:
+            lines.append(f"... {len(untracked_files) - 20} more untracked files")
+        segments.append("\n".join(lines))
 
     combined = "\n\n".join(segments)
     return combined[:max_chars]
@@ -659,6 +812,76 @@ def clean_bullets(value: object) -> list[str]:
         seen.add(normalized)
         cleaned_items.append(cleaned)
     return cleaned_items
+
+
+def split_deferred_sentences(text: str) -> list[str]:
+    if not text.strip():
+        return []
+
+    collapsed = re.sub(r"\s+", " ", text.strip())
+    parts = re.split(r"(?<=[.!?])\s+", collapsed)
+    sentences: list[str] = []
+    for part in parts:
+        cleaned = part.strip().strip("-* ").strip()
+        if len(cleaned) < 24:
+            continue
+        if len(cleaned) > 240:
+            cleaned = cleaned[:237].rstrip() + "..."
+        sentences.append(cleaned)
+    return sentences
+
+
+def extract_deferred_candidate_spec(text_sources: list[str]) -> list[str]:
+    candidates: list[str] = []
+    for text in text_sources:
+        for sentence in split_deferred_sentences(text):
+            normalized = normalize_text(sentence)
+            if any(keyword in normalized for keyword in DEFERRED_SPEC_KEYWORDS):
+                candidates.append(sentence)
+    return clean_bullets(candidates)[:4]
+
+
+def extract_deferred_knowledge(text_sources: list[str]) -> list[str]:
+    candidates: list[str] = []
+    for text in text_sources:
+        for sentence in split_deferred_sentences(text):
+            normalized = f" {normalize_text(sentence)} "
+            if not any(hint in normalized for hint in DEFERRED_KNOWLEDGE_HINTS):
+                continue
+            if FILE_PATH_PATTERN.search(sentence):
+                candidates.append(sentence)
+    return clean_bullets(candidates)[:4]
+
+
+def summarize_deferred_context(
+    assistant_excerpt: str,
+    transcript_text: str,
+    files: list[str],
+) -> str:
+    for source_text in (assistant_excerpt, transcript_text):
+        for sentence in split_deferred_sentences(source_text):
+            return f"Deferred TeamAI summary captured after session end. {sentence}"
+
+    summary = "Deferred TeamAI summary captured after session end."
+    if files:
+        summary = f"{summary} Files touched: {', '.join(files[:5])}."
+    return summary
+
+
+def build_deferred_summary_payload(
+    request: dict[str, object],
+    transcript_text: str,
+    files: list[str],
+) -> dict[str, object]:
+    assistant_excerpt = get_string_value(request, "assistantMessageExcerpt")
+    sources = [assistant_excerpt, transcript_text]
+    knowledge = extract_deferred_knowledge(sources)
+    candidate_spec = extract_deferred_candidate_spec(sources)
+    return {
+        "summary": summarize_deferred_context(assistant_excerpt, transcript_text, files),
+        "knowledge": knowledge,
+        "candidate_spec": candidate_spec,
+    }
 
 
 def fallback_payload(event: dict[str, object], files: list[str]) -> dict[str, object]:
@@ -1337,30 +1560,89 @@ def write_merge_outputs(
     )
 
 
+def build_compiled_state(
+    config: dict[str, object],
+    merge_index: dict[str, object],
+    repo_profile: dict[str, object],
+    latest_evidence: dict[str, object],
+) -> dict[str, object]:
+    knowledge_records = merge_index.get("knowledge")
+    candidate_records = merge_index.get("candidateSpec")
+    knowledge_dict = knowledge_records if isinstance(knowledge_records, dict) else {}
+    candidate_dict = candidate_records if isinstance(candidate_records, dict) else {}
+    recent_files = latest_evidence.get("files", [])
+    if not isinstance(recent_files, list):
+        recent_files = []
+
+    source = latest_evidence.get("source", {})
+    latest_source = source if isinstance(source, dict) else {}
+
+    payload = {
+        "version": COMPILE_STATE_VERSION,
+        "repoProfile": repo_profile,
+        "mergeIndex": merge_index,
+        "config": config,
+        "latestEvidence": {
+            "eventId": latest_evidence.get("eventId"),
+            "summary": latest_evidence.get("summary"),
+            "generator": latest_evidence.get("generator"),
+            "quality": latest_evidence.get("quality"),
+            "files": recent_files[:MAX_COMPILE_CACHE_RECENT_FILES],
+            "source": {
+                "transcriptChars": latest_source.get("transcriptChars"),
+                "diffChars": latest_source.get("diffChars"),
+                "sessionEndDeferred": latest_source.get("sessionEndDeferred"),
+                "sessionEndFallback": latest_source.get("sessionEndFallback"),
+            },
+        },
+        "counts": {
+            "knowledge": len(knowledge_dict),
+            "candidateSpec": len(candidate_dict),
+        },
+    }
+    return {
+        "version": COMPILE_STATE_VERSION,
+        "updatedAt": now_iso(),
+        "inputHash": hash_json_payload(payload),
+    }
+
+
+def has_fresh_compiled_outputs(
+    repo_root: Path,
+    config: dict[str, object],
+    compiled_state: dict[str, object],
+    expected_hash: str,
+) -> bool:
+    input_hash = get_string_value(compiled_state, "inputHash")
+    if not input_hash or input_hash != expected_hash:
+        return False
+    return compile_outputs_exist(get_compile_output_paths(repo_root, config))
+
+
+def write_compiled_state(repo_root: Path, compiled_state: dict[str, object]) -> None:
+    write_json(get_compiled_state_path(repo_root), compiled_state)
+
+
 def write_compiled_outputs(
     repo_root: Path,
     config: dict[str, object],
     merge_index: dict[str, object],
     latest_evidence: dict[str, object] | None = None,
+    repo_profile: dict[str, object] | None = None,
 ) -> None:
     knowledge_records = merge_index.get("knowledge")
     spec_records = merge_index.get("candidateSpec")
     knowledge_dict = knowledge_records if isinstance(knowledge_records, dict) else {}
     spec_dict = spec_records if isinstance(spec_records, dict) else {}
-    repo_profile = scan_repo_profile(repo_root, config)
-
-    repo_profile_path = get_artifact_path(
-        repo_root,
-        config,
-        "repoProfilePath",
-        "state/repo-profile.json",
+    next_repo_profile = (
+        repo_profile if isinstance(repo_profile, dict) else scan_repo_profile(repo_root, config)
     )
-    write_json(repo_profile_path, repo_profile)
+    next_repo_profile = stabilize_repo_profile(repo_root, config, next_repo_profile)
 
     rule_store = {
         "version": 1,
         "updatedAt": now_iso(),
-        "repoProfile": repo_profile,
+        "repoProfile": next_repo_profile,
         "collections": {
             "knowledge": {
                 **summarize_record_groups(knowledge_dict),
@@ -1372,13 +1654,6 @@ def write_compiled_outputs(
             },
         },
     }
-    rule_store_path = get_artifact_path(
-        repo_root,
-        config,
-        "ruleStorePath",
-        "state/rule-store.json",
-    )
-    write_json(rule_store_path, rule_store)
 
     latest = latest_evidence if isinstance(latest_evidence, dict) else read_artifact_json(
         repo_root,
@@ -1387,55 +1662,56 @@ def write_compiled_outputs(
         "evidence/latest.json",
     )
 
-    compiled_spec_path = get_artifact_path(
-        repo_root,
-        config,
-        "compiledSpecPath",
-        "generated/spec.md",
-    )
-    write_text(
-        compiled_spec_path,
-        render_compiled_spec_markdown(repo_profile, knowledge_dict, spec_dict),
-    )
+    compiled_state = build_compiled_state(config, merge_index, next_repo_profile, latest)
+    output_paths = get_compile_output_paths(repo_root, config)
 
-    session_injection_path = get_artifact_path(
-        repo_root,
-        config,
-        "sessionStartInjectionPath",
-        "generated/inject/session-start.txt",
+    write_json(output_paths["repoProfile"], next_repo_profile)
+    write_json(output_paths["ruleStore"], rule_store)
+    write_text(
+        output_paths["compiledSpec"],
+        render_compiled_spec_markdown(next_repo_profile, knowledge_dict, spec_dict),
     )
     write_text(
-        session_injection_path,
-        render_session_start_injection(repo_profile, latest, knowledge_dict, spec_dict),
+        output_paths["sessionStartInjection"],
+        render_session_start_injection(next_repo_profile, latest, knowledge_dict, spec_dict),
     )
-
-    tool_injection_path = get_artifact_path(
-        repo_root,
-        config,
-        "toolInjectionPath",
-        "generated/inject/tool-task.txt",
+    shared_injection = render_shared_injection(
+        next_repo_profile,
+        latest,
+        knowledge_dict,
+        spec_dict,
     )
-    write_text(
-        tool_injection_path,
-        render_shared_injection(repo_profile, latest, knowledge_dict, spec_dict),
-    )
-
-    subagent_injection_path = get_artifact_path(
-        repo_root,
-        config,
-        "subagentInjectionPath",
-        "generated/inject/subagent.txt",
-    )
-    write_text(
-        subagent_injection_path,
-        render_shared_injection(repo_profile, latest, knowledge_dict, spec_dict),
-    )
+    write_text(output_paths["toolInjection"], shared_injection)
+    write_text(output_paths["subagentInjection"], shared_injection)
+    write_compiled_state(repo_root, compiled_state)
 
 
 def ensure_compiled_artifacts(repo_root: Path) -> None:
     config = load_config(repo_root)
     merge_index = load_merge_index(repo_root)
-    write_compiled_outputs(repo_root, config, merge_index)
+    latest = read_artifact_json(
+        repo_root,
+        config,
+        "latestEvidencePath",
+        "evidence/latest.json",
+    )
+    repo_profile = scan_repo_profile(repo_root, config)
+    repo_profile = stabilize_repo_profile(repo_root, config, repo_profile)
+    compiled_state = build_compiled_state(config, merge_index, repo_profile, latest)
+    if has_fresh_compiled_outputs(
+        repo_root,
+        config,
+        load_compiled_state(repo_root),
+        get_string_value(compiled_state, "inputHash"),
+    ):
+        return
+    write_compiled_outputs(
+        repo_root,
+        config,
+        merge_index,
+        latest,
+        repo_profile=repo_profile,
+    )
 
 
 def write_evidence(

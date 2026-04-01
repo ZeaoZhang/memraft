@@ -7,7 +7,7 @@ Its job is simple:
 
 1. inject mature local knowledge into Claude at the right time
 2. request a stop-time summary through a dedicated Claude subagent
-3. fall back at session end only when that stop-time summary never completes
+3. defer a background session-end summary when that stop-time summary never completes
 4. extract candidate knowledge and spec notes automatically
 5. promote repeated, higher-confidence patterns into reusable memory
 6. compile repo facts plus promoted rules into injectable TeamAI spec artifacts
@@ -85,18 +85,21 @@ starting a separate `claude -p` process.
 ### 4. Session-end fallback
 
 When the session ends without a completed stop summary, TeamAI starts an async
-background worker that records fallback evidence so the session is not lost.
+background worker that first tries to finish a deferred summary from the saved
+stop-request context. If that context is unavailable, it records fallback
+evidence so the session is not lost.
 
-The fallback path:
+The session-end path:
 
 1. records a session-end event
-2. reads the transcript tail if available
-3. uses the event's captured changed-file and diff snapshot
-4. writes a deterministic fallback summary
-5. grades the evidence quality
-6. merges extracted bullets into the local merge index when eligible
-7. writes updated memory/spec artifacts
-8. writes an outbox envelope for future sync when `sync.enabled` is true
+2. reuses the saved stop-summary request when one exists
+3. reads the transcript tail if available
+4. uses the captured changed-file and diff snapshot
+5. writes either a deferred summary payload or a deterministic fallback summary
+6. grades the evidence quality
+7. merges extracted bullets into the local merge index when eligible
+8. writes updated memory/spec artifacts
+9. writes an outbox envelope for future sync when `sync.enabled` is true
 
 ## Learning Model
 
@@ -155,6 +158,9 @@ Stop-time and session-end events snapshot changed files and diff state at event
 creation time, so later worktree changes do not rewrite the evidence for the
 original session.
 
+Untracked files are included in the captured worktree diff summary so
+new-file-heavy sessions are not scored as "no diff".
+
 ## Directory Layout
 
 ### Core files
@@ -176,6 +182,7 @@ original session.
 - `knowledge/memory.md` - promoted and candidate shared knowledge
 - `specs/candidate-spec.md` - promoted and candidate spec notes
 - `state/merge-index.json` - canonical merge and promotion state
+- `state/compiled-state.json` - compile-cache fingerprint for generated artifacts
 - `state/repo-profile.json` - scanned repository background facts
 - `state/rule-store.json` - structured TeamAI rule store
 - `state/session-events/*.json` - pending worker events

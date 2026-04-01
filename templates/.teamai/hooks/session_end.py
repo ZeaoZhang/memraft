@@ -13,14 +13,17 @@ from common import configure_stdout, find_repo_root, read_json, write_json
 from pipeline import (
     TEAMAI_DIR,
     build_capture_snapshot,
+    build_deferred_summary_payload,
     build_event,
     fallback_payload,
     get_capture_config,
     get_session_id,
     get_stop_summary_config,
+    get_string_value,
     load_config,
     load_summary_state,
     persist_summary,
+    read_transcript_excerpt,
     save_summary_state,
 )
 
@@ -73,6 +76,7 @@ def spawn_worker(repo_root: Path, event: dict[str, object]) -> int:
 def process_event(repo_root: Path, event: dict[str, object]) -> int:
     config = load_config(repo_root)
     stop_config = get_stop_summary_config(config)
+    capture_config = get_capture_config(config)
     session_id = get_session_id(event)
     state = load_summary_state(repo_root)
 
@@ -101,10 +105,73 @@ def process_event(repo_root: Path, event: dict[str, object]) -> int:
         save_summary_state(repo_root, state)
         return 0
 
+    requests = state.get("requests", {})
+    latest_request = unresolved_requests[0] if unresolved_requests else None
+    if latest_request and isinstance(requests, dict):
+        request_event_value = latest_request.get("event")
+        request_event = request_event_value if isinstance(request_event_value, dict) else {}
+        deferred_event = dict(request_event) if request_event else dict(event)
+        for key in (
+            "transcriptPath",
+            "reason",
+            "repoRoot",
+            "worktreeFiles",
+            "worktreeDiff",
+            "worktreeCapturedAt",
+        ):
+            if key not in deferred_event and key in event:
+                deferred_event[key] = event[key]
+
+        transcript_path = get_string_value(deferred_event, "transcriptPath")
+        transcript_text = read_transcript_excerpt(
+            transcript_path,
+            int(capture_config["maxTranscriptChars"]),
+        )
+        files_value = deferred_event.get("worktreeFiles")
+        files = (
+            [item for item in files_value if isinstance(item, str) and item]
+            if isinstance(files_value, list)
+            else []
+        )
+        if not files:
+            files = build_capture_snapshot(repo_root, capture_config).get("worktreeFiles", [])
+            if not isinstance(files, list):
+                files = []
+
+        payload = build_deferred_summary_payload(latest_request, transcript_text, files)
+        evidence = persist_summary(
+            repo_root,
+            deferred_event,
+            payload,
+            "session-end-deferred",
+            {
+                "sessionEndDeferred": True,
+                "sessionEndEventId": event.get("eventId"),
+                "summaryRequestId": latest_request.get("requestId"),
+                "stopSummaryAgent": stop_config["agentName"],
+                "assistantExcerptChars": len(
+                    str(latest_request.get("assistantMessageExcerpt", "")).strip()
+                ),
+            },
+        )
+
+        completed_at = str(event.get("createdAt")) or str(evidence.get("createdAt"))
+        for request in unresolved_requests:
+            request["updatedAt"] = completed_at
+            if request is latest_request:
+                request["status"] = "completed"
+                request["completedAt"] = completed_at
+                request["evidenceEventId"] = evidence.get("eventId")
+                request["completionMode"] = "session-end-deferred"
+            else:
+                request["status"] = "expired"
+                request["fallbackEventId"] = str(event.get("eventId"))
+        save_summary_state(repo_root, state)
+        return 0
+
     files_value = event.get("worktreeFiles")
     files = [item for item in files_value if isinstance(item, str) and item] if isinstance(files_value, list) else []
     if not files:
-        capture_config = get_capture_config(config)
         files = build_capture_snapshot(repo_root, capture_config).get("worktreeFiles", [])
         if not isinstance(files, list):
             files = []
@@ -120,7 +187,6 @@ def process_event(repo_root: Path, event: dict[str, object]) -> int:
         },
     )
 
-    requests = state.get("requests", {})
     if isinstance(requests, dict):
         for request in unresolved_requests:
             request["status"] = "expired"
