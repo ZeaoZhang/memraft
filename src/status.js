@@ -40,9 +40,15 @@ export async function printStatus(options = {}) {
             repoProfile: Boolean(repoProfile),
             ruleStore: fs.existsSync(paths.ruleStorePath),
             compiledSpec: fs.existsSync(paths.compiledSpecPath),
+            compiledState: fs.existsSync(paths.compiledStatePath),
             sessionStartInjection: fs.existsSync(paths.sessionStartInjectionPath),
             toolInjection: fs.existsSync(paths.toolInjectionPath),
             subagentInjection: fs.existsSync(paths.subagentInjectionPath),
+            adapterManifest: fs.existsSync(paths.adapterManifestPath),
+            codexAgents: fs.existsSync(paths.codexAgentsPath),
+            geminiContext: fs.existsSync(paths.geminiContextPath),
+            opencodeAgents: fs.existsSync(paths.opencodeAgentsPath),
+            opencodeConfig: fs.existsSync(paths.opencodeConfigPath),
           },
           latestEvidence: latest,
         },
@@ -81,8 +87,12 @@ export async function printStatus(options = {}) {
   console.log(`- repo profile: ${repoProfile ? "ok" : "missing"}`);
   console.log(`- rule store: ${fs.existsSync(paths.ruleStorePath) ? "ok" : "missing"}`);
   console.log(`- compiled spec: ${fs.existsSync(paths.compiledSpecPath) ? "ok" : "missing"}`);
+  console.log(`- compiled state: ${fs.existsSync(paths.compiledStatePath) ? "ok" : "missing"}`);
   console.log(
     `- injections: session=${fs.existsSync(paths.sessionStartInjectionPath) ? "ok" : "missing"}, tool=${fs.existsSync(paths.toolInjectionPath) ? "ok" : "missing"}, subagent=${fs.existsSync(paths.subagentInjectionPath) ? "ok" : "missing"}`,
+  );
+  console.log(
+    `- adapters: manifest=${fs.existsSync(paths.adapterManifestPath) ? "ok" : "missing"}, codex=${fs.existsSync(paths.codexAgentsPath) ? "ok" : "missing"}, gemini=${fs.existsSync(paths.geminiContextPath) ? "ok" : "missing"}, opencode=${fs.existsSync(paths.opencodeAgentsPath) ? "ok" : "missing"}`,
   );
   console.log("");
 

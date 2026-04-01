@@ -1,4 +1,10 @@
-import { readJsonIfExists, requireInitialized } from "./runtime.js";
+import fs from "node:fs";
+import path from "node:path";
+import {
+  readJsonIfExists,
+  readTextIfExists,
+  requireInitialized,
+} from "./runtime.js";
 
 function printList(title, values) {
   console.log(title);
@@ -12,6 +18,121 @@ function printList(title, values) {
     console.log(`- ${value}`);
   }
   console.log("");
+}
+
+function summarizeEvidenceFile(paths, eventId) {
+  const evidencePath = path.join(paths.teamaiRoot, "evidence", "sessions", `${eventId}.json`);
+  const evidence = readJsonIfExists(evidencePath);
+  return {
+    eventId,
+    path: evidencePath,
+    exists: Boolean(evidence),
+    evidence: evidence ?? null,
+  };
+}
+
+function buildRulesInspection(paths) {
+  const ruleStore = readJsonIfExists(paths.ruleStorePath);
+  if (!ruleStore) {
+    throw new Error(`No rule store found in ${paths.ruleStorePath}`);
+  }
+
+  return {
+    repoRoot: paths.repoRoot,
+    ruleStorePath: paths.ruleStorePath,
+    ruleStore,
+  };
+}
+
+function buildCompiledInspection(paths) {
+  const files = {
+    compiledSpec: paths.compiledSpecPath,
+    sessionStartInjection: paths.sessionStartInjectionPath,
+    toolInjection: paths.toolInjectionPath,
+    subagentInjection: paths.subagentInjectionPath,
+    compiledState: paths.compiledStatePath,
+    adapterManifest: paths.adapterManifestPath,
+    codexAgents: paths.codexAgentsPath,
+    geminiContext: paths.geminiContextPath,
+    opencodeAgents: paths.opencodeAgentsPath,
+    opencodeConfig: paths.opencodeConfigPath,
+  };
+
+  const entries = Object.fromEntries(
+    Object.entries(files).map(([key, filePath]) => {
+      const content = readTextIfExists(filePath);
+      const preview =
+        typeof content === "string"
+          ? content
+              .split(/\r?\n/)
+              .filter((line) => line.trim().length > 0)
+              .slice(0, 10)
+          : [];
+      return [
+        key,
+        {
+          path: filePath,
+          exists: content !== null,
+          size: content === null ? 0 : Buffer.byteLength(content, "utf8"),
+          preview,
+        },
+      ];
+    }),
+  );
+
+  return {
+    repoRoot: paths.repoRoot,
+    files: entries,
+    manifest: readJsonIfExists(paths.adapterManifestPath),
+    compiledState: readJsonIfExists(paths.compiledStatePath),
+  };
+}
+
+function resolveLineageRecord(ruleStore, fingerprint) {
+  const collections = [
+    ["knowledge", ruleStore?.collections?.knowledge?.records ?? {}],
+    ["spec", ruleStore?.collections?.spec?.records ?? {}],
+  ];
+
+  const matches = [];
+  for (const [collection, records] of collections) {
+    for (const [recordFingerprint, record] of Object.entries(records)) {
+      if (!record || typeof record !== "object") {
+        continue;
+      }
+      if (recordFingerprint === fingerprint || recordFingerprint.startsWith(fingerprint)) {
+        matches.push({ collection, fingerprint: recordFingerprint, record });
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    throw new Error(`No rule record found for fingerprint: ${fingerprint}`);
+  }
+  if (matches.length > 1) {
+    throw new Error(`Fingerprint prefix is ambiguous: ${fingerprint}`);
+  }
+  return matches[0];
+}
+
+function buildLineageInspection(paths, fingerprint) {
+  const ruleStore = readJsonIfExists(paths.ruleStorePath);
+  if (!ruleStore) {
+    throw new Error(`No rule store found in ${paths.ruleStorePath}`);
+  }
+
+  const match = resolveLineageRecord(ruleStore, fingerprint);
+  const sourceEvidenceIds = Array.isArray(match.record.sourceEvidenceIds)
+    ? match.record.sourceEvidenceIds.filter((value) => typeof value === "string")
+    : [];
+
+  return {
+    repoRoot: paths.repoRoot,
+    collection: match.collection,
+    fingerprint: match.fingerprint,
+    record: match.record,
+    evidence: sourceEvidenceIds.map((eventId) => summarizeEvidenceFile(paths, eventId)),
+  };
 }
 
 export async function inspectLatest(options = {}) {
@@ -71,4 +192,105 @@ export async function inspectLatest(options = {}) {
   console.log(
     `- candidateSpec: ${JSON.stringify(merge.candidateSpec ?? {}, null, 0)}`,
   );
+}
+
+export async function inspectRules(options = {}) {
+  const paths = requireInitialized(options.targetDir);
+  const inspection = buildRulesInspection(paths);
+
+  if (options.json) {
+    console.log(JSON.stringify(inspection, null, 2));
+    return;
+  }
+
+  const { ruleStore } = inspection;
+  console.log("Rule Store");
+  console.log("");
+  console.log(`Path: ${inspection.ruleStorePath}`);
+  console.log(`Schema: ${ruleStore.recordSchemaVersion ?? 1}`);
+  console.log(`UpdatedAt: ${ruleStore.updatedAt ?? "unknown"}`);
+  console.log("");
+
+  for (const [name, collection] of Object.entries(ruleStore.collections ?? {})) {
+    const label = name === "spec" ? "Spec" : "Knowledge";
+    console.log(`${label}:`);
+    console.log(`- promoted: ${collection.promotedCount ?? 0}`);
+    console.log(`- candidates: ${collection.candidateCount ?? 0}`);
+    console.log(`- invalidated: ${collection.invalidatedCount ?? 0}`);
+    console.log(`- kinds: ${JSON.stringify(collection.kindCounts ?? {}, null, 0)}`);
+    console.log(`- scopes: ${JSON.stringify(collection.scopeCounts ?? {}, null, 0)}`);
+    console.log("");
+  }
+}
+
+export async function inspectCompiled(options = {}) {
+  const paths = requireInitialized(options.targetDir);
+  const inspection = buildCompiledInspection(paths);
+
+  if (options.json) {
+    console.log(JSON.stringify(inspection, null, 2));
+    return;
+  }
+
+  console.log("Compiled Artifacts");
+  console.log("");
+  console.log(`Repo: ${inspection.repoRoot}`);
+  console.log("");
+
+  for (const [name, info] of Object.entries(inspection.files)) {
+    console.log(`${name}:`);
+    console.log(`- path: ${info.path}`);
+    console.log(`- exists: ${info.exists}`);
+    console.log(`- size: ${info.size}`);
+    if (Array.isArray(info.preview) && info.preview.length > 0) {
+      console.log("- preview:");
+      for (const line of info.preview) {
+        console.log(`  ${line}`);
+      }
+    }
+    console.log("");
+  }
+}
+
+export async function inspectLineage(options = {}) {
+  const paths = requireInitialized(options.targetDir);
+  if (typeof options.fingerprint !== "string" || !options.fingerprint.trim()) {
+    throw new Error("inspect lineage requires a fingerprint");
+  }
+
+  const inspection = buildLineageInspection(paths, options.fingerprint.trim());
+  if (options.json) {
+    console.log(JSON.stringify(inspection, null, 2));
+    return;
+  }
+
+  console.log("Rule Lineage");
+  console.log("");
+  console.log(`Collection: ${inspection.collection}`);
+  console.log(`Fingerprint: ${inspection.fingerprint}`);
+  console.log(`Text: ${inspection.record.text ?? ""}`);
+  console.log(`Kind: ${inspection.record.kind ?? "unknown"}`);
+  console.log(`Scope: ${inspection.record.scope ?? "unknown"}`);
+  console.log(`Promotion: ${inspection.record.promotionStatus ?? "unknown"}`);
+  console.log(`Lifecycle: ${inspection.record.lifecycleStatus ?? "active"}`);
+  console.log(`Paths: ${JSON.stringify(inspection.record.paths ?? [], null, 0)}`);
+  console.log(`Requires: ${JSON.stringify(inspection.record.requires ?? {}, null, 0)}`);
+  console.log("");
+
+  console.log("Evidence:");
+  if (inspection.evidence.length === 0) {
+    console.log("- none");
+    return;
+  }
+
+  for (const entry of inspection.evidence) {
+    const evidence = entry.evidence ?? {};
+    const quality =
+      evidence.quality && typeof evidence.quality === "object" ? evidence.quality : {};
+    console.log(`- ${entry.eventId}: ${entry.path}`);
+    console.log(`  exists=${entry.exists} generator=${evidence.generator ?? "unknown"} grade=${quality.grade ?? "N/A"}`);
+    if (typeof evidence.summary === "string" && evidence.summary) {
+      console.log(`  summary=${evidence.summary}`);
+    }
+  }
 }

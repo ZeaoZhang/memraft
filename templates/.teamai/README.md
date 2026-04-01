@@ -199,6 +199,11 @@ new-file-heavy sessions are not scored as "no diff".
 - `generated/inject/session-start.txt` - compiled SessionStart injection
 - `generated/inject/tool-task.txt` - compiled Task/Agent injection
 - `generated/inject/subagent.txt` - compiled SubagentStart injection
+- `generated/adapters/manifest.json` - adapter artifact inventory
+- `generated/adapters/codex/AGENTS.md` - Codex-ready static context
+- `generated/adapters/gemini/GEMINI.md` - Gemini CLI-ready static context
+- `generated/adapters/opencode/AGENTS.md` - OpenCode-ready static context
+- `generated/adapters/opencode/opencode.json` - OpenCode config snippet
 - `logs/session-end.log` - background worker log
 
 ### Sync skeleton

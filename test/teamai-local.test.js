@@ -132,6 +132,26 @@ function getCompiledStatePath(repo) {
   return path.join(repo, ".teamai", "state", "compiled-state.json");
 }
 
+function getAdapterManifestPath(repo) {
+  return path.join(repo, ".teamai", "generated", "adapters", "manifest.json");
+}
+
+function getCodexAgentsPath(repo) {
+  return path.join(repo, ".teamai", "generated", "adapters", "codex", "AGENTS.md");
+}
+
+function getGeminiContextPath(repo) {
+  return path.join(repo, ".teamai", "generated", "adapters", "gemini", "GEMINI.md");
+}
+
+function getOpenCodeAgentsPath(repo) {
+  return path.join(repo, ".teamai", "generated", "adapters", "opencode", "AGENTS.md");
+}
+
+function getOpenCodeConfigPath(repo) {
+  return path.join(repo, ".teamai", "generated", "adapters", "opencode", "opencode.json");
+}
+
 function getSessionInjectionPath(repo) {
   const config = readTeamaiConfig(repo);
   return getConfiguredTeamaiPath(
@@ -563,6 +583,39 @@ test("rule store exports typed metadata for promoted records", () => {
   assert.equal(specRecord.lifecycleStatus, "active");
 });
 
+test("compiled adapters are generated for codex, gemini, and opencode", () => {
+  const repo = makeRepo();
+  runCli(["init", repo]);
+  seedWorktree(repo);
+
+  const configPath = path.join(repo, ".teamai", "config.json");
+  const config = readJson(configPath);
+  config.merge.minimumGrade = "D";
+  config.merge.promotion.minimumOccurrences = 1;
+  config.merge.promotion.minimumEvidenceCount = 1;
+  config.merge.promotion.minimumConfidence = 0;
+  writeJson(configPath, config);
+
+  completeStopSummary(repo, "sess-adapters");
+
+  const manifest = readJson(getAdapterManifestPath(repo));
+  const codexAgents = readFileSync(getCodexAgentsPath(repo), "utf8");
+  const geminiContext = readFileSync(getGeminiContextPath(repo), "utf8");
+  const opencodeAgents = readFileSync(getOpenCodeAgentsPath(repo), "utf8");
+  const opencodeConfig = readJson(getOpenCodeConfigPath(repo));
+
+  assert.equal(manifest.adapters.codex.recommendedProjectFile, "AGENTS.md");
+  assert.equal(manifest.adapters.gemini.recommendedProjectFile, "GEMINI.md");
+  assert.equal(manifest.adapters.opencode.recommendedProjectFile, "AGENTS.md");
+  assert.match(codexAgents, /TeamAI Project Context For Codex/);
+  assert.match(codexAgents, /Keep TeamAI summaries JSON-only and subagent-driven/);
+  assert.match(geminiContext, /TeamAI Project Context For Gemini CLI/);
+  assert.match(opencodeAgents, /TeamAI Project Context For OpenCode/);
+  assert.deepEqual(opencodeConfig.instructions, [
+    ".teamai/generated/adapters/opencode/AGENTS.md",
+  ]);
+});
+
 test("repo reconciliation invalidates promoted path rules after repo drift", () => {
   const repo = makeRepo();
   runCli(["init", repo]);
@@ -612,6 +665,52 @@ test("repo reconciliation invalidates promoted path rules after repo drift", () 
   assert.equal(knowledgeRecord.lifecycleStatus, "invalidated");
   assert.equal(knowledgeRecord.promotionStatus, "candidate");
   assert.doesNotMatch(compiledSpec, /src\/app\.js should stay on the project runtime surface/);
+});
+
+test("inspect rules, compiled, and lineage expose structured observability", () => {
+  const repo = makeRepo();
+  runCli(["init", repo]);
+  seedWorktree(repo);
+
+  const configPath = path.join(repo, ".teamai", "config.json");
+  const config = readJson(configPath);
+  config.merge.minimumGrade = "D";
+  config.merge.promotion.minimumOccurrences = 1;
+  config.merge.promotion.minimumEvidenceCount = 1;
+  config.merge.promotion.minimumConfidence = 0;
+  writeJson(configPath, config);
+
+  completeStopSummary(repo, "sess-inspect", {
+    summaryPayload: {
+      summary: "Stable summary.",
+      knowledge: ["src/app.js is part of the project runtime surface."],
+      candidate_spec: ["src/app.js should stay on the project runtime surface."],
+    },
+  });
+
+  const ruleStore = readJson(getRuleStorePath(repo));
+  const specFingerprint = Object.entries(ruleStore.collections.spec.records).find(
+    ([, record]) => record.text === "src/app.js should stay on the project runtime surface.",
+  )[0];
+
+  const rulesResult = runCli(["inspect", "rules", repo, "--json"]);
+  const rulesInspection = JSON.parse(rulesResult.stdout);
+  assert.equal(rulesInspection.ruleStore.recordSchemaVersion, 2);
+  assert.equal(rulesInspection.ruleStore.collections.spec.promotedCount, 1);
+
+  const compiledResult = runCli(["inspect", "compiled", repo, "--json"]);
+  const compiledInspection = JSON.parse(compiledResult.stdout);
+  assert.equal(compiledInspection.files.codexAgents.exists, true);
+  assert.equal(compiledInspection.files.geminiContext.exists, true);
+  assert.equal(compiledInspection.files.opencodeConfig.exists, true);
+
+  const lineageResult = runCli(["inspect", "lineage", specFingerprint, repo, "--json"]);
+  const lineageInspection = JSON.parse(lineageResult.stdout);
+  assert.equal(lineageInspection.collection, "spec");
+  assert.equal(lineageInspection.record.text, "src/app.js should stay on the project runtime surface.");
+  assert.equal(lineageInspection.record.kind, "path-rule");
+  assert.equal(lineageInspection.evidence.length, 1);
+  assert.equal(lineageInspection.evidence[0].exists, true);
 });
 
 test("custom artifact and outbox paths stay functional when kept inside .teamai", () => {

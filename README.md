@@ -27,6 +27,9 @@ needed to:
 teamai-local init [target-dir] [--force] [--skip-existing]
 teamai-local status [target-dir] [--json]
 teamai-local inspect latest [target-dir] [--json]
+teamai-local inspect rules [target-dir] [--json]
+teamai-local inspect compiled [target-dir] [--json]
+teamai-local inspect lineage <fingerprint> [target-dir] [--json]
 ```
 
 ## Usage
@@ -66,6 +69,8 @@ Inspect status after initialization:
 ```bash
 teamai-local status /path/to/your/repo
 teamai-local inspect latest /path/to/your/repo
+teamai-local inspect rules /path/to/your/repo
+teamai-local inspect compiled /path/to/your/repo
 ```
 
 ## What Gets Created
@@ -119,6 +124,9 @@ event, so async persistence still reflects the original session state.
 
 Generated artifacts are also compile-cached, so repeated hot-path hooks do not
 rewrite spec and injection files when their inputs are unchanged.
+
+TeamAI also compiles adapter-ready instruction files for Codex, Gemini CLI, and
+OpenCode under `.teamai/generated/adapters/`.
 
 Configured artifact and outbox paths are now constrained to `.teamai/`, so
 custom nesting is allowed but path traversal outside the runtime directory is

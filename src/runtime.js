@@ -40,6 +40,7 @@ export function getTeamaiPaths(targetDir) {
     repoRoot,
     teamaiRoot,
     configPath,
+    compiledStatePath: path.join(teamaiRoot, "state", "compiled-state.json"),
     latestEvidencePath: resolveConfiguredTeamaiPath(
       teamaiRoot,
       typeof artifacts.latestEvidencePath === "string" && artifacts.latestEvidencePath
@@ -112,6 +113,12 @@ export function getTeamaiPaths(targetDir) {
         : "sync/outbox",
       "sync.outboxDir",
     ),
+    adapterDir: path.join(teamaiRoot, "generated", "adapters"),
+    adapterManifestPath: path.join(teamaiRoot, "generated", "adapters", "manifest.json"),
+    codexAgentsPath: path.join(teamaiRoot, "generated", "adapters", "codex", "AGENTS.md"),
+    geminiContextPath: path.join(teamaiRoot, "generated", "adapters", "gemini", "GEMINI.md"),
+    opencodeAgentsPath: path.join(teamaiRoot, "generated", "adapters", "opencode", "AGENTS.md"),
+    opencodeConfigPath: path.join(teamaiRoot, "generated", "adapters", "opencode", "opencode.json"),
     claudeSettingsPath: path.join(repoRoot, ".claude", "settings.json"),
   };
 }
@@ -135,6 +142,20 @@ export function readJsonIfExists(filePath) {
   } catch (error) {
     throw new Error(
       `Failed to parse JSON at ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+export function readTextIfExists(filePath) {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+
+  try {
+    return fs.readFileSync(filePath, "utf-8");
+  } catch (error) {
+    throw new Error(
+      `Failed to read text at ${filePath}: ${error instanceof Error ? error.message : String(error)}`,
     );
   }
 }

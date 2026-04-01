@@ -470,6 +470,31 @@ def get_compile_output_paths(repo_root: Path, config: dict[str, object]) -> dict
             "subagentInjectionPath",
             "generated/inject/subagent.txt",
         ),
+        "adapterManifest": resolve_teamai_path(
+            repo_root,
+            "generated/adapters/manifest.json",
+            label="generated.adapters.manifest",
+        ),
+        "codexAgents": resolve_teamai_path(
+            repo_root,
+            "generated/adapters/codex/AGENTS.md",
+            label="generated.adapters.codex",
+        ),
+        "geminiContext": resolve_teamai_path(
+            repo_root,
+            "generated/adapters/gemini/GEMINI.md",
+            label="generated.adapters.gemini",
+        ),
+        "opencodeAgents": resolve_teamai_path(
+            repo_root,
+            "generated/adapters/opencode/AGENTS.md",
+            label="generated.adapters.opencode",
+        ),
+        "opencodeConfig": resolve_teamai_path(
+            repo_root,
+            "generated/adapters/opencode/opencode.json",
+            label="generated.adapters.opencodeConfig",
+        ),
     }
 
 
@@ -1679,6 +1704,94 @@ def render_shared_injection(
     return "\n".join(lines)
 
 
+def render_adapter_markdown(
+    tool_label: str,
+    *,
+    filename: str,
+    repo_profile: dict[str, object],
+    latest_evidence: dict[str, object],
+    knowledge_records: dict[str, object],
+    spec_records: dict[str, object],
+) -> str:
+    lines = [
+        f"# TeamAI Project Context For {tool_label}",
+        "",
+        (
+            f"This file is compiled for `{filename}` consumers from repo facts plus "
+            "promoted TeamAI rules."
+        ),
+        "If repository code conflicts with a note below, trust the repository state.",
+        "",
+        "## Repository Background",
+        "",
+        *render_profile_lines(repo_profile, compact_commands=False),
+        "",
+        "## Stable Project Rules",
+        "",
+        *render_promoted_lines(
+            spec_records,
+            include_meta=True,
+            limit=20,
+            empty_message="- No promoted rules yet.",
+        ),
+        "",
+        "## Stable Learned Knowledge",
+        "",
+        *render_promoted_lines(
+            knowledge_records,
+            include_meta=True,
+            limit=20,
+            empty_message="- No promoted knowledge yet.",
+        ),
+        "",
+    ]
+
+    recent_lines = render_recent_evidence_lines(
+        latest_evidence,
+        include_files=True,
+        max_files=6,
+    )
+    if recent_lines:
+        lines.extend(["## Recent Evidence Snapshot", "", *recent_lines, ""])
+
+    return "\n".join(lines)
+
+
+def render_opencode_config(repo_root: Path) -> str:
+    payload = {
+        "$schema": "https://opencode.ai/config.json",
+        "instructions": [".teamai/generated/adapters/opencode/AGENTS.md"],
+    }
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+
+
+def build_adapter_manifest(
+    output_paths: dict[str, Path],
+) -> dict[str, object]:
+    return {
+        "version": 1,
+        "updatedAt": now_iso(),
+        "adapters": {
+            "codex": {
+                "generatedPath": str(output_paths["codexAgents"]),
+                "recommendedProjectFile": "AGENTS.md",
+                "mode": "static-project-instructions",
+            },
+            "gemini": {
+                "generatedPath": str(output_paths["geminiContext"]),
+                "recommendedProjectFile": "GEMINI.md",
+                "mode": "static-project-instructions",
+            },
+            "opencode": {
+                "generatedPath": str(output_paths["opencodeAgents"]),
+                "recommendedProjectFile": "AGENTS.md",
+                "configSnippetPath": str(output_paths["opencodeConfig"]),
+                "mode": "static-project-instructions",
+            },
+        },
+    }
+
+
 def merge_collection(
     records: dict[str, object],
     bullets: list[str],
@@ -2103,6 +2216,41 @@ def write_compiled_outputs(
     )
     write_text(output_paths["toolInjection"], shared_injection)
     write_text(output_paths["subagentInjection"], shared_injection)
+    write_text(
+        output_paths["codexAgents"],
+        render_adapter_markdown(
+            "Codex",
+            filename="AGENTS.md",
+            repo_profile=next_repo_profile,
+            latest_evidence=latest,
+            knowledge_records=knowledge_dict,
+            spec_records=spec_dict,
+        ),
+    )
+    write_text(
+        output_paths["geminiContext"],
+        render_adapter_markdown(
+            "Gemini CLI",
+            filename="GEMINI.md",
+            repo_profile=next_repo_profile,
+            latest_evidence=latest,
+            knowledge_records=knowledge_dict,
+            spec_records=spec_dict,
+        ),
+    )
+    write_text(
+        output_paths["opencodeAgents"],
+        render_adapter_markdown(
+            "OpenCode",
+            filename="AGENTS.md",
+            repo_profile=next_repo_profile,
+            latest_evidence=latest,
+            knowledge_records=knowledge_dict,
+            spec_records=spec_dict,
+        ),
+    )
+    write_text(output_paths["opencodeConfig"], render_opencode_config(repo_root))
+    write_json(output_paths["adapterManifest"], build_adapter_manifest(output_paths))
     write_compiled_state(repo_root, compiled_state)
 
 

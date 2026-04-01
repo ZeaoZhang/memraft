@@ -1,4 +1,9 @@
-import { inspectLatest } from "./inspect.js";
+import {
+  inspectCompiled,
+  inspectLatest,
+  inspectLineage,
+  inspectRules,
+} from "./inspect.js";
 import { initTeamai } from "./init.js";
 import { printStatus } from "./status.js";
 
@@ -9,12 +14,18 @@ Usage:
   teamai-local init [target-dir] [--force] [--skip-existing]
   teamai-local status [target-dir]
   teamai-local inspect latest [target-dir] [--json]
+  teamai-local inspect rules [target-dir] [--json]
+  teamai-local inspect compiled [target-dir] [--json]
+  teamai-local inspect lineage <fingerprint> [target-dir] [--json]
   node ./bin/teamai-local.js init [target-dir] [--force] [--skip-existing]
 
 Commands:
   init              Initialize TeamAI hooks and local memory scaffold
   status            Show TeamAI runtime status for a repository
   inspect latest    Show the latest extracted evidence snapshot
+  inspect rules     Show the current structured rule store
+  inspect compiled  Show compiled outputs and adapter artifacts
+  inspect lineage   Show rule lineage for a fingerprint
 
 Options:
   --force           Overwrite existing TeamAI template files
@@ -70,6 +81,37 @@ function parseTargetArgs(args) {
   return { help: false, targetDir, json };
 }
 
+function parseInspectArgs(args, { requiresIdentifier = false } = {}) {
+  const positionals = [];
+  let json = false;
+
+  for (const arg of args) {
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+    if (arg === "-h" || arg === "--help") {
+      return { help: true };
+    }
+    positionals.push(arg);
+  }
+
+  if (!requiresIdentifier) {
+    return {
+      help: false,
+      json,
+      targetDir: positionals[0] ?? process.cwd(),
+    };
+  }
+
+  return {
+    help: false,
+    json,
+    fingerprint: positionals[0] ?? "",
+    targetDir: positionals[1] ?? process.cwd(),
+  };
+}
+
 export async function main(args) {
   const [command, ...rest] = args;
 
@@ -102,19 +144,50 @@ export async function main(args) {
 
   if (command === "inspect") {
     const [subject, ...inspectRest] = rest;
+    if (subject === "latest") {
+      const options = parseInspectArgs(inspectRest);
+      if (options.help) {
+        printHelp();
+        return;
+      }
+      await inspectLatest(options);
+      return;
+    }
+
+    if (subject === "rules") {
+      const options = parseInspectArgs(inspectRest);
+      if (options.help) {
+        printHelp();
+        return;
+      }
+      await inspectRules(options);
+      return;
+    }
+
+    if (subject === "compiled") {
+      const options = parseInspectArgs(inspectRest);
+      if (options.help) {
+        printHelp();
+        return;
+      }
+      await inspectCompiled(options);
+      return;
+    }
+
+    if (subject === "lineage") {
+      const options = parseInspectArgs(inspectRest, { requiresIdentifier: true });
+      if (options.help) {
+        printHelp();
+        return;
+      }
+      await inspectLineage(options);
+      return;
+    }
+
     if (subject !== "latest") {
       printHelp();
       throw new Error(`Unknown inspect target: ${subject ?? "(missing)"}`);
     }
-
-    const options = parseTargetArgs(inspectRest);
-    if (options.help) {
-      printHelp();
-      return;
-    }
-
-    await inspectLatest(options);
-    return;
   }
 
   printHelp();
