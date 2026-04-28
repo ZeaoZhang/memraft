@@ -1,0 +1,11 @@
+Use the compiled project memory context below when useful.
+If repository code conflicts with a note below, trust the repository state.
+
+Repository background:
+- Repo profile has not been scanned yet.
+
+Stable project rules:
+- No promoted rules yet.
+
+Stable learned knowledge:
+- No promoted knowledge yet.

@@ -1,0 +1,26 @@
+# Managed by Memraft. Keep other repo-local Codex settings outside this block.
+# MEMRAFT:BEGIN codex-notify
+notify = [
+  "node",
+  "--input-type=module",
+  "-e",
+  """
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+let hookDir = null;
+const current = path.resolve(process.cwd());
+const candidates = [current];
+let cursor = current;
+while (true) { const parent = path.dirname(cursor); if (parent === cursor) break; candidates.push(parent); cursor = parent; }
+for (const candidate of candidates) {
+  const possible = path.join(candidate, '.memraft', 'hooks');
+  if (fs.existsSync(possible) && fs.statSync(possible).isDirectory()) { hookDir = possible; break; }
+}
+if (!hookDir) { process.exit(0); }
+const mod = await import(pathToFileURL(path.join(hookDir, 'codex_notify.mjs')).href);
+const exitCode = await mod.main([].concat(process.argv.slice(1)));
+if (Number.isInteger(exitCode)) { process.exit(exitCode); }
+"""
+]
+# MEMRAFT:END codex-notify

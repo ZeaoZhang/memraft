@@ -1,0 +1,77 @@
+{
+  "eventId": "20260413T122029Z_4bd0c1fa",
+  "eventKind": "manual_capture",
+  "createdAt": "2026-04-13T12:20:29Z",
+  "sessionId": "smoke-1",
+  "reason": "manual_capture:codex",
+  "summary": "Codex updated app.js and captured a reusable local rule.",
+  "files": [
+    "README.md",
+    "src/init.js",
+    "src/inspect.js",
+    "src/runtime.js",
+    "src/status.js",
+    "templates/.memraft/README.md",
+    "templates/.memraft/config.json",
+    "templates/.memraft/hooks/pipeline.py",
+    "test/memraft-local.test.js",
+    "docs/multi-tool-memory-spec-architecture.md",
+    "templates/.memraft/hooks/manual_capture.py"
+  ],
+  "generator": "codex-manual",
+  "quality": {
+    "grade": "A",
+    "score": 95,
+    "signals": [
+      "diff",
+      "files",
+      "model_summary",
+      "summary",
+      "extracted_items",
+      "manual_capture"
+    ],
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "fileCount": 11
+  },
+  "knowledge": [
+    "app.js is part of the local runtime surface."
+  ],
+  "candidateSpec": [
+    "Keep Memraft captures strict JSON-only."
+  ],
+  "merge": {
+    "minimumGrade": "C",
+    "eligible": true,
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    },
+    "knowledge": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 1
+    },
+    "candidateSpec": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 1
+    }
+  },
+  "source": {
+    "transcriptAvailable": false,
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "worktreeSnapshotUsed": true,
+    "worktreeSnapshotCapturedAt": "2026-04-13T12:20:29Z",
+    "manualCapture": true,
+    "captureTool": "codex"
+  }
+}

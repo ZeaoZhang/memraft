@@ -1,0 +1,119 @@
+{
+  "eventId": "20260419T111652Z_5c24d037",
+  "eventKind": "manual_capture",
+  "createdAt": "2026-04-19T11:16:52Z",
+  "sessionId": "codex-manual",
+  "reason": "manual_capture:codex",
+  "summary": "Migrated Memraft's generated hook/runtime layer from Python to Node.js by replacing the Python hook modules with a shared `runtime.mjs` plus `.mjs` entrypoints, updating init/CLI/runtime wiring, and syncing generated adapter outputs.",
+  "files": [
+    ".gitignore",
+    "README.md",
+    "bin/teamai-local.js",
+    "docs/next-stage-plan.md",
+    "package.json",
+    "src/cli.js",
+    "src/init.js",
+    "src/inspect.js",
+    "src/runtime.js",
+    "src/status.js",
+    "templates/.claude/agents/teamai-memory-summarizer.md",
+    "templates/.teamai/README.md",
+    "templates/.teamai/config.json",
+    "templates/.teamai/evidence/README.md",
+    "templates/.teamai/evidence/sessions/.gitkeep",
+    "templates/.teamai/generated/inject/session-start.txt",
+    "templates/.teamai/generated/inject/subagent.txt",
+    "templates/.teamai/generated/inject/tool-task.txt",
+    "templates/.teamai/generated/spec.md",
+    "templates/.teamai/hooks/__pycache__/common.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pipeline.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pre_tool_use.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_end.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/stop.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_stop.cpython-312.pyc",
+    "templates/.teamai/hooks/common.py",
+    "templates/.teamai/hooks/pipeline.py",
+    "templates/.teamai/hooks/pre_tool_use.py",
+    "templates/.teamai/hooks/session_end.py",
+    "templates/.teamai/hooks/session_start.py",
+    "templates/.teamai/hooks/stop.py",
+    "templates/.teamai/hooks/subagent_start.py",
+    "templates/.teamai/hooks/subagent_stop.py",
+    "templates/.teamai/knowledge/memory.md",
+    "templates/.teamai/logs/.gitkeep",
+    "templates/.teamai/specs/candidate-spec.md",
+    "templates/.teamai/state/.gitkeep",
+    "templates/.teamai/state/merge-index.json",
+    "templates/.teamai/state/repo-profile.json",
+    "templates/.teamai/state/rule-store.json",
+    "templates/.teamai/state/session-events/.gitkeep",
+    "templates/.teamai/sync/outbox/.gitkeep",
+    "templates/.teamai/sync/protocol.md",
+    "test/teamai-local.test.js",
+    ".gemini/settings.json",
+    "bin/memraft.js",
+    "docs/multi-tool-memory-spec-architecture.md",
+    "templates/.claude/agents/memraft-memory-summarizer.md",
+    "test/memraft.test.js"
+  ],
+  "generator": "codex-manual",
+  "quality": {
+    "grade": "A",
+    "score": 100,
+    "signals": [
+      "diff",
+      "files",
+      "model_summary",
+      "summary",
+      "extracted_items",
+      "manual_capture"
+    ],
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "fileCount": 51
+  },
+  "knowledge": [
+    "Memraft now uses Node-only generated hooks under `.memraft/hooks/*.mjs`, with `runtime.mjs` owning capture, compile, summary-state, and SQLite runtime behavior.",
+    "The project's verification contract for this migration is covered by `npm test`, which now exercises the Node hook entrypoints instead of Python scripts."
+  ],
+  "candidateSpec": [
+    "When changing generated Memraft hook/runtime behavior, keep the repo-local adapters and test fixtures aligned by updating `src/init.js`, `.memraft` templates, generated adapter docs/config, and `test/memraft.test.js` together."
+  ],
+  "merge": {
+    "minimumGrade": "C",
+    "eligible": true,
+    "appliedToRepoMemory": true,
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    },
+    "knowledge": {
+      "added": 2,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 7
+    },
+    "candidateSpec": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 7
+    }
+  },
+  "source": {
+    "transcriptAvailable": false,
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "worktreeSnapshotUsed": true,
+    "worktreeSnapshotCapturedAt": "2026-04-19T11:16:52Z",
+    "manualCapture": true,
+    "captureTool": "codex"
+  }
+}

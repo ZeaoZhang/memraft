@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "projectName": "memraft",
+  "repoRoot": "/Users/zhangzeao/workspace/memraft",
+  "scannedAt": "2026-04-19T11:15:21Z",
+  "workspaceType": "single-package",
+  "languages": [
+    "javascript"
+  ],
+  "packageManagers": [],
+  "frameworks": [],
+  "tooling": [],
+  "commands": {
+    "start": "node ./bin/memraft.js --help",
+    "test": "node --test"
+  }
+}

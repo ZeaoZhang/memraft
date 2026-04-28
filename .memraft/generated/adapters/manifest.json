@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "updatedAt": "2026-04-22T06:42:10Z",
+  "adapters": {
+    "codex": {
+      "generatedPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/codex/AGENTS.md",
+      "recommendedProjectFile": "AGENTS.md",
+      "configSnippetPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/codex/config.toml",
+      "mode": "static-project-instructions"
+    },
+    "gemini": {
+      "generatedPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/gemini/GEMINI.md",
+      "recommendedProjectFile": "GEMINI.md",
+      "mode": "static-project-instructions"
+    },
+    "opencode": {
+      "generatedPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/opencode/AGENTS.md",
+      "recommendedProjectFile": "AGENTS.md",
+      "configSnippetPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/opencode/opencode.json",
+      "pluginPath": "/Users/zhangzeao/workspace/memraft/.memraft/generated/adapters/opencode/memraft-auto-capture.js",
+      "mode": "static-project-instructions"
+    }
+  }
+}

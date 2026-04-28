@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "projectName": "{{PROJECT_NAME}}",
+  "repoRoot": "",
+  "scannedAt": "",
+  "workspaceType": "unknown",
+  "languages": [],
+  "packageManagers": [],
+  "frameworks": [],
+  "tooling": [],
+  "commands": {}
+}

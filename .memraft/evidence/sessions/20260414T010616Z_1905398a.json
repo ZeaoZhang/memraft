@@ -1,0 +1,96 @@
+{
+  "eventId": "20260414T010616Z_1905398a",
+  "eventKind": "automatic_capture",
+  "createdAt": "2026-04-14T01:06:16Z",
+  "sessionId": "codex-session-1",
+  "reason": "automatic_capture:codex:agent-turn-complete",
+  "summary": "Deferred Memraft summary captured after session end. Files touched: README.md, src/init.js, src/inspect.js, src/runtime.js, src/status.js.",
+  "files": [
+    "README.md",
+    "src/init.js",
+    "src/inspect.js",
+    "src/runtime.js",
+    "src/status.js",
+    "templates/.memraft/README.md",
+    "templates/.memraft/config.json",
+    "templates/.memraft/hooks/pipeline.py",
+    "test/memraft-local.test.js",
+    ".memraft/evidence/latest.json",
+    ".memraft/evidence/sessions/20260413T122029Z_4bd0c1fa.json",
+    ".memraft/generated/adapters/codex/AGENTS.md",
+    ".memraft/generated/adapters/gemini/GEMINI.md",
+    ".memraft/generated/adapters/manifest.json",
+    ".memraft/generated/adapters/opencode/AGENTS.md",
+    ".memraft/generated/adapters/opencode/opencode.json",
+    ".memraft/generated/inject/session-start.txt",
+    ".memraft/generated/inject/subagent.txt",
+    ".memraft/generated/inject/tool-task.txt",
+    ".memraft/generated/spec.md",
+    ".memraft/knowledge/memory.md",
+    ".memraft/specs/candidate-spec.md",
+    ".memraft/state/compiled-state.json",
+    ".memraft/state/merge-index.json",
+    ".memraft/state/repo-profile.json",
+    ".memraft/state/rule-store.json",
+    "docs/multi-tool-memory-spec-architecture.md",
+    "templates/.memraft/hooks/auto_capture.py",
+    "templates/.memraft/hooks/codex_notify.py",
+    "templates/.memraft/hooks/gemini_before_agent.py",
+    "templates/.memraft/hooks/manual_capture.py"
+  ],
+  "generator": "codex-auto",
+  "quality": {
+    "grade": "B",
+    "score": 70,
+    "signals": [
+      "diff",
+      "files",
+      "model_summary",
+      "summary",
+      "extracted_items"
+    ],
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "fileCount": 31
+  },
+  "knowledge": [],
+  "candidateSpec": [
+    "src/app.js should stay on the project runtime surface."
+  ],
+  "merge": {
+    "minimumGrade": "C",
+    "eligible": true,
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    },
+    "knowledge": {
+      "added": 0,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 1
+    },
+    "candidateSpec": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 2
+    }
+  },
+  "source": {
+    "transcriptAvailable": false,
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "worktreeSnapshotUsed": true,
+    "worktreeSnapshotCapturedAt": "2026-04-14T01:06:16Z",
+    "automaticCapture": true,
+    "captureTool": "codex",
+    "captureEventType": "agent-turn-complete",
+    "capturePayloadPresent": true
+  }
+}

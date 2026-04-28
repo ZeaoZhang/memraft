@@ -1,0 +1,119 @@
+{
+  "eventId": "20260420T024303Z_2f22c6f9",
+  "eventKind": "manual_capture",
+  "createdAt": "2026-04-20T02:43:03Z",
+  "sessionId": "codex-manual",
+  "reason": "manual_capture:codex",
+  "summary": "Upgraded Memraft's Codex adapter from notify-first to hooks-first by generating `.codex/hooks.json` plus `features.codex_hooks = true`, adding Codex `SessionStart`, `UserPromptSubmit`, and `Stop` hook entrypoints, and aligning status/inspection surfaces, tests, and docs.",
+  "files": [
+    ".gitignore",
+    "README.md",
+    "bin/teamai-local.js",
+    "docs/next-stage-plan.md",
+    "package.json",
+    "src/cli.js",
+    "src/init.js",
+    "src/inspect.js",
+    "src/runtime.js",
+    "src/status.js",
+    "templates/.claude/agents/teamai-memory-summarizer.md",
+    "templates/.teamai/README.md",
+    "templates/.teamai/config.json",
+    "templates/.teamai/evidence/README.md",
+    "templates/.teamai/evidence/sessions/.gitkeep",
+    "templates/.teamai/generated/inject/session-start.txt",
+    "templates/.teamai/generated/inject/subagent.txt",
+    "templates/.teamai/generated/inject/tool-task.txt",
+    "templates/.teamai/generated/spec.md",
+    "templates/.teamai/hooks/__pycache__/common.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pipeline.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pre_tool_use.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_end.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/stop.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_stop.cpython-312.pyc",
+    "templates/.teamai/hooks/common.py",
+    "templates/.teamai/hooks/pipeline.py",
+    "templates/.teamai/hooks/pre_tool_use.py",
+    "templates/.teamai/hooks/session_end.py",
+    "templates/.teamai/hooks/session_start.py",
+    "templates/.teamai/hooks/stop.py",
+    "templates/.teamai/hooks/subagent_start.py",
+    "templates/.teamai/hooks/subagent_stop.py",
+    "templates/.teamai/knowledge/memory.md",
+    "templates/.teamai/logs/.gitkeep",
+    "templates/.teamai/specs/candidate-spec.md",
+    "templates/.teamai/state/.gitkeep",
+    "templates/.teamai/state/merge-index.json",
+    "templates/.teamai/state/repo-profile.json",
+    "templates/.teamai/state/rule-store.json",
+    "templates/.teamai/state/session-events/.gitkeep",
+    "templates/.teamai/sync/outbox/.gitkeep",
+    "templates/.teamai/sync/protocol.md",
+    "test/teamai-local.test.js",
+    ".gemini/settings.json",
+    "LICENSE",
+    "bin/memraft.js",
+    "docs/multi-tool-memory-spec-architecture.md",
+    "templates/.claude/agents/memraft-memory-summarizer.md",
+    "test/memraft.test.js"
+  ],
+  "generator": "codex-manual",
+  "quality": {
+    "grade": "A",
+    "score": 95,
+    "signals": [
+      "diff",
+      "files",
+      "model_summary",
+      "summary",
+      "extracted_items",
+      "manual_capture"
+    ],
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "fileCount": 52
+  },
+  "knowledge": [
+    "Memraft's source-level Codex integration now targets repo-local hooks via `.codex/hooks.json` and keeps `.codex/config.toml` focused on enabling `features.codex_hooks`."
+  ],
+  "candidateSpec": [
+    "When changing Codex adapter behavior, update the runtime generator, native adapter state reporting, generated adapter docs/artifacts, and integration tests together so the user-facing status surface stays aligned with actual Codex behavior."
+  ],
+  "merge": {
+    "minimumGrade": "C",
+    "eligible": true,
+    "appliedToRepoMemory": true,
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    },
+    "knowledge": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 8
+    },
+    "candidateSpec": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 8
+    }
+  },
+  "source": {
+    "transcriptAvailable": false,
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "worktreeSnapshotUsed": true,
+    "worktreeSnapshotCapturedAt": "2026-04-20T02:43:03Z",
+    "manualCapture": true,
+    "captureTool": "codex"
+  }
+}

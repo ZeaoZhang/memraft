@@ -1,0 +1,37 @@
+<memraft-context>
+Use this compiled Memraft context when it helps.
+If repository code conflicts with a note below, trust the repository state.
+
+## Recent Evidence
+Implemented a product-facing shared spec layer for Memraft with checked-in memraft/spec templates, proposal review via inspect proposals, acceptance via accept --into, and compilation of accepted shared guidance back into generated artifacts and status surfaces.
+Quality grade: A
+Files touched:
+- .gitignore
+- README.md
+- bin/teamai-local.js
+- docs/next-stage-plan.md
+- package.json
+- src/cli.js
+- src/init.js
+- src/inspect.js
+
+## Adapter Runtime
+- Codex adapter mode: full
+- Automatic Codex capture is enabled.
+- Gemini CLI adapter mode: inject-only
+- Gemini CLI capture remains manual-only; use the manual capture path when you need persistence.
+- OpenCode adapter mode: full
+- Automatic OpenCode capture is enabled.
+
+## Repository Background
+- Project: memraft
+- Workspace: single-package
+- Languages: javascript
+- test: node --test
+
+## Stable Project Rules
+- No promoted rules yet.
+
+## Stable Learned Knowledge
+- No promoted knowledge yet.
+</memraft-context>

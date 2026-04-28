@@ -1,0 +1,160 @@
+{
+  "dbPath": "/Users/zhangzeao/workspace/memraft/.memraft/state/index.sqlite",
+  "eventCount": 9,
+  "memoryCount": 25,
+  "memoryEdgeCount": 58,
+  "pendingPromotionCount": 25,
+  "activeTask": null,
+  "adapterStates": {
+    "nativeAgents": {
+      "ownership": "managed",
+      "updatedAt": "2026-04-22T06:42:10Z",
+      "details": {
+        "mode": "managed-block",
+        "path": "/Users/zhangzeao/workspace/memraft/AGENTS.md"
+      }
+    },
+    "nativeCodexConfig": {
+      "ownership": "managed",
+      "updatedAt": "2026-04-22T06:42:10Z",
+      "details": {
+        "mode": "notify-block",
+        "path": "/Users/zhangzeao/workspace/memraft/.codex/config.toml"
+      }
+    },
+    "nativeGemini": {
+      "ownership": "managed",
+      "updatedAt": "2026-04-22T06:42:10Z",
+      "details": {
+        "mode": "managed-block",
+        "path": "/Users/zhangzeao/workspace/memraft/GEMINI.md"
+      }
+    },
+    "nativeOpencodeConfig": {
+      "ownership": "managed",
+      "updatedAt": "2026-04-22T06:42:10Z",
+      "details": {
+        "mode": "config-merge",
+        "path": "/Users/zhangzeao/workspace/memraft/opencode.json"
+      }
+    },
+    "nativeOpencodePlugin": {
+      "ownership": "managed",
+      "updatedAt": "2026-04-22T06:42:10Z",
+      "details": {
+        "mode": "copied-plugin",
+        "path": "/Users/zhangzeao/workspace/memraft/.opencode/plugins/memraft-auto-capture.js"
+      }
+    }
+  },
+  "adapterModes": {
+    "codex": {
+      "mode": "full",
+      "injectEnabled": true,
+      "captureEnabled": true
+    },
+    "opencode": {
+      "mode": "full",
+      "injectEnabled": true,
+      "captureEnabled": true
+    },
+    "gemini": {
+      "mode": "inject-only",
+      "injectEnabled": true,
+      "captureEnabled": false
+    }
+  },
+  "recentAudit": [
+    {
+      "createdAt": "2026-04-22T06:41:09Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260422T064109Z_0e788078",
+      "details": {
+        "candidateSpecCount": 1,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 2,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-22T04:47:40Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260422T044740Z_a12cb09c",
+      "details": {
+        "candidateSpecCount": 1,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 2,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-21T15:13:51Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260421T151351Z_f71df162",
+      "details": {
+        "candidateSpecCount": 1,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 2,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-20T02:43:03Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260420T024303Z_2f22c6f9",
+      "details": {
+        "candidateSpecCount": 1,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 1,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-19T11:16:52Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260419T111652Z_5c24d037",
+      "details": {
+        "candidateSpecCount": 1,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 2,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-15T06:33:45Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260415T063345Z_7b400613",
+      "details": {
+        "candidateSpecCount": 2,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 1,
+        "taskId": ""
+      }
+    },
+    {
+      "createdAt": "2026-04-14T11:12:21Z",
+      "actionType": "capture.persisted",
+      "entityType": "event",
+      "entityId": "20260414T111221Z_b08f00e9",
+      "details": {
+        "candidateSpecCount": 2,
+        "eligible": true,
+        "generator": "codex-manual",
+        "knowledgeCount": 3,
+        "taskId": ""
+      }
+    }
+  ]
+}

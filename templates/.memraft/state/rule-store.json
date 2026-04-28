@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "updatedAt": "",
+  "repoProfile": {
+    "version": 1,
+    "projectName": "{{PROJECT_NAME}}",
+    "repoRoot": "",
+    "scannedAt": "",
+    "workspaceType": "unknown",
+    "languages": [],
+    "packageManagers": [],
+    "frameworks": [],
+    "tooling": [],
+    "commands": {}
+  },
+  "collections": {
+    "knowledge": {
+      "promotedCount": 0,
+      "candidateCount": 0,
+      "records": {}
+    },
+    "spec": {
+      "promotedCount": 0,
+      "candidateCount": 0,
+      "records": {}
+    }
+  }
+}

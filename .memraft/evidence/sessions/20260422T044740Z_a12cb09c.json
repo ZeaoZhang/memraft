@@ -1,0 +1,120 @@
+{
+  "eventId": "20260422T044740Z_a12cb09c",
+  "eventKind": "manual_capture",
+  "createdAt": "2026-04-22T04:47:40Z",
+  "sessionId": "codex-manual",
+  "reason": "manual_capture:codex",
+  "summary": "Compared Vibe-Skills' governed multi-tier memory plane with Memraft's current runtime-heavy architecture. The main product gap is not capture/compilation capability but the lack of a visible shared-spec layer, review queue, and aligned truth surfaces across docs, generated artifacts, and live status.",
+  "files": [
+    ".gitignore",
+    "README.md",
+    "bin/teamai-local.js",
+    "docs/next-stage-plan.md",
+    "package.json",
+    "src/cli.js",
+    "src/init.js",
+    "src/inspect.js",
+    "src/runtime.js",
+    "src/status.js",
+    "templates/.claude/agents/teamai-memory-summarizer.md",
+    "templates/.teamai/README.md",
+    "templates/.teamai/config.json",
+    "templates/.teamai/evidence/README.md",
+    "templates/.teamai/evidence/sessions/.gitkeep",
+    "templates/.teamai/generated/inject/session-start.txt",
+    "templates/.teamai/generated/inject/subagent.txt",
+    "templates/.teamai/generated/inject/tool-task.txt",
+    "templates/.teamai/generated/spec.md",
+    "templates/.teamai/hooks/__pycache__/common.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pipeline.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/pre_tool_use.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_end.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/session_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/stop.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_start.cpython-312.pyc",
+    "templates/.teamai/hooks/__pycache__/subagent_stop.cpython-312.pyc",
+    "templates/.teamai/hooks/common.py",
+    "templates/.teamai/hooks/pipeline.py",
+    "templates/.teamai/hooks/pre_tool_use.py",
+    "templates/.teamai/hooks/session_end.py",
+    "templates/.teamai/hooks/session_start.py",
+    "templates/.teamai/hooks/stop.py",
+    "templates/.teamai/hooks/subagent_start.py",
+    "templates/.teamai/hooks/subagent_stop.py",
+    "templates/.teamai/knowledge/memory.md",
+    "templates/.teamai/logs/.gitkeep",
+    "templates/.teamai/specs/candidate-spec.md",
+    "templates/.teamai/state/.gitkeep",
+    "templates/.teamai/state/merge-index.json",
+    "templates/.teamai/state/repo-profile.json",
+    "templates/.teamai/state/rule-store.json",
+    "templates/.teamai/state/session-events/.gitkeep",
+    "templates/.teamai/sync/outbox/.gitkeep",
+    "templates/.teamai/sync/protocol.md",
+    "test/teamai-local.test.js",
+    ".gemini/settings.json",
+    "LICENSE",
+    "bin/memraft.js",
+    "docs/multi-tool-memory-spec-architecture.md",
+    "templates/.claude/agents/memraft-memory-summarizer.md",
+    "test/memraft.test.js"
+  ],
+  "generator": "codex-manual",
+  "quality": {
+    "grade": "A",
+    "score": 100,
+    "signals": [
+      "diff",
+      "files",
+      "model_summary",
+      "summary",
+      "extracted_items",
+      "manual_capture"
+    ],
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "fileCount": 52
+  },
+  "knowledge": [
+    "Vibe-Skills models memory as explicit planes with canonical owners and shadow-first governance, which is a strong reference for Memraft product design.",
+    "Memraft already has a strong local runtime, typed rule pipeline, and multi-tool adapters, but product value stays hidden when pending candidates do not become visible promoted/shared guidance."
+  ],
+  "candidateSpec": [
+    "When productizing Memraft, prioritize shared-spec separation, proposal acceptance flow, and truth-surface alignment before adding advanced clustering, sync, or UI polish."
+  ],
+  "merge": {
+    "minimumGrade": "C",
+    "eligible": true,
+    "appliedToRepoMemory": true,
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    },
+    "knowledge": {
+      "added": 2,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 12
+    },
+    "candidateSpec": {
+      "added": 1,
+      "updated": 0,
+      "skipped": 0,
+      "promoted": 0,
+      "currentPromoted": 0,
+      "currentCandidates": 10
+    }
+  },
+  "source": {
+    "transcriptAvailable": false,
+    "transcriptChars": 0,
+    "diffChars": 14000,
+    "worktreeSnapshotUsed": true,
+    "worktreeSnapshotCapturedAt": "2026-04-22T04:47:40Z",
+    "manualCapture": true,
+    "captureTool": "codex"
+  }
+}

@@ -1,0 +1,26 @@
+Use the compiled Memraft context below when useful.
+If repository code conflicts with a note below, trust the repository state.
+
+Recent evidence:
+Implemented a product-facing shared spec layer for Memraft with checked-in memraft/spec templates, proposal review via inspect proposals, acceptance via accept --into, and compilation of accepted shared guidance back into generated artifacts and status surfaces.
+Quality grade: A
+
+Adapter runtime:
+- Codex adapter mode: full
+- Automatic Codex capture is enabled.
+- Gemini CLI adapter mode: inject-only
+- Gemini CLI capture remains manual-only; use the manual capture path when you need persistence.
+- OpenCode adapter mode: full
+- Automatic OpenCode capture is enabled.
+
+Repository background:
+- Project: memraft
+- Workspace: single-package
+- Languages: javascript
+- test: node --test
+
+Stable project rules:
+- No promoted rules yet.
+
+Stable learned knowledge:
+- No promoted knowledge yet.

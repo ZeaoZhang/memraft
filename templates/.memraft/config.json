@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "projectName": "{{PROJECT_NAME}}",
+  "createdAt": "{{CREATED_AT}}",
+  "merge": {
+    "minimumGrade": "C",
+    "promotion": {
+      "minimumOccurrences": 2,
+      "minimumEvidenceCount": 2,
+      "minimumConfidence": 0.68
+    }
+  },
+  "capture": {
+    "excludePathPrefixes": [
+      ".memraft/",
+      ".omc/",
+      ".claude/",
+      ".codex/",
+      ".opencode/",
+      ".git/",
+      "AGENTS.md",
+      "GEMINI.md",
+      "opencode.json"
+    ],
+    "maxTranscriptChars": 18000,
+    "maxDiffChars": 14000
+  },
+  "stopSummary": {
+    "enabled": true,
+    "mode": "full",
+    "minimumConversationChars": 1200,
+    "minimumAssistantChars": 450,
+    "minimumChangedFiles": 1,
+    "allowWithoutChanges": true,
+    "maxBlockAttempts": 2,
+    "maxReasonChars": 2400,
+    "maxAssistantExcerptChars": 2400,
+    "maxFilesInReason": 12
+  },
+  "sync": {
+    "enabled": false,
+    "uploadMode": "manual",
+    "serverUrl": "",
+    "repoKey": "{{PROJECT_KEY}}",
+    "scope": "repo",
+    "publicNamespaces": ["shared/default"],
+    "outboxDir": "sync/outbox"
+  },
+  "artifacts": {
+    "memoryPath": "knowledge/memory.md",
+    "candidateSpecPath": "specs/candidate-spec.md",
+    "latestEvidencePath": "evidence/latest.json",
+    "repoProfilePath": "state/repo-profile.json",
+    "ruleStorePath": "state/rule-store.json",
+    "compiledSpecPath": "generated/spec.md",
+    "sessionStartInjectionPath": "generated/inject/session-start.txt",
+    "toolInjectionPath": "generated/inject/tool-task.txt",
+    "subagentInjectionPath": "generated/inject/subagent.txt"
+  }
+}
