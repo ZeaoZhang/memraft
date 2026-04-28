@@ -2,7 +2,7 @@
 
 ## Stage Goal
 
-Move TeamAI from a Claude-only local MVP into an autonomous spec pipeline that:
+Move Memraft from a Claude-only local MVP into an autonomous spec pipeline that:
 
 1. captures reusable project rules without human review
 2. compiles stable and hot context separately

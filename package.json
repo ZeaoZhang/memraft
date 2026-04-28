@@ -1,14 +1,42 @@
 {
-  "name": "teamai-local-mvp",
-  "version": "0.1.0",
-  "private": true,
+  "name": "memraft",
+  "version": "0.0.1",
+  "license": "MIT",
   "type": "module",
-  "description": "Standalone local-first TeamAI knowledge extraction MVP",
-  "bin": {
-    "teamai-local": "./bin/teamai-local.js"
+  "description": "Local-first runtime for reusable project memory and guidance",
+  "author": "Zeao Zhang",
+  "keywords": [
+    "cli",
+    "memory",
+    "knowledge-management",
+    "developer-tools",
+    "codex",
+    "claude",
+    "gemini",
+    "opencode"
+  ],
+  "homepage": "https://github.com/ZeaoZhang/memraft#readme",
+  "bugs": {
+    "url": "https://github.com/ZeaoZhang/memraft/issues"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZeaoZhang/memraft.git"
+  },
+  "bin": {
+    "memraft": "bin/memraft.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates/.memraft",
+    "templates/.claude",
+    "templates/memraft",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "start": "node ./bin/teamai-local.js --help",
+    "start": "node ./bin/memraft.js --help",
     "test": "node --test"
   },
   "engines": {

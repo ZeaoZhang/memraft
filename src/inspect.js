@@ -21,7 +21,7 @@ function printList(title, values) {
 }
 
 function summarizeEvidenceFile(paths, eventId) {
-  const evidencePath = path.join(paths.teamaiRoot, "evidence", "sessions", `${eventId}.json`);
+  const evidencePath = path.join(paths.memraftRoot, "evidence", "sessions", `${eventId}.json`);
   const evidence = readJsonIfExists(evidencePath);
   return {
     eventId,
@@ -53,9 +53,22 @@ function buildCompiledInspection(paths) {
     compiledState: paths.compiledStatePath,
     adapterManifest: paths.adapterManifestPath,
     codexAgents: paths.codexAgentsPath,
+    codexConfig: paths.codexConfigPath,
+    codexHooks: paths.codexHooksPath,
     geminiContext: paths.geminiContextPath,
     opencodeAgents: paths.opencodeAgentsPath,
     opencodeConfig: paths.opencodeConfigPath,
+    opencodePlugin: paths.opencodePluginPath,
+    nativeAgents: paths.nativeAgentsPath,
+    nativeCodexConfig: paths.nativeCodexConfigPath,
+    nativeCodexHooks: paths.nativeCodexHooksPath,
+    nativeGemini: paths.nativeGeminiPath,
+    nativeOpencodeConfig: paths.nativeOpencodeConfigPath,
+    nativeOpencodePlugin: paths.nativeOpencodePluginPath,
+    sharedRegistry: paths.sharedSpecRegistryPath,
+    sharedBackground: paths.sharedSpecBackgroundPath,
+    sharedConventions: paths.sharedSpecConventionsPath,
+    sharedWorkflows: paths.sharedSpecWorkflowsPath,
   };
 
   const entries = Object.fromEntries(
@@ -85,6 +98,7 @@ function buildCompiledInspection(paths) {
     files: entries,
     manifest: readJsonIfExists(paths.adapterManifestPath),
     compiledState: readJsonIfExists(paths.compiledStatePath),
+    runtimeSummary: readJsonIfExists(paths.runtimeSummaryPath),
   };
 }
 
@@ -247,6 +261,38 @@ export async function inspectCompiled(options = {}) {
       for (const line of info.preview) {
         console.log(`  ${line}`);
       }
+    }
+    console.log("");
+  }
+
+  const runtimeSummary =
+    inspection.runtimeSummary && typeof inspection.runtimeSummary === "object"
+      ? inspection.runtimeSummary
+      : null;
+  if (runtimeSummary) {
+    const adapterStates =
+      runtimeSummary.adapterStates && typeof runtimeSummary.adapterStates === "object"
+        ? runtimeSummary.adapterStates
+        : {};
+    const adapterModes =
+      runtimeSummary.adapterModes && typeof runtimeSummary.adapterModes === "object"
+        ? runtimeSummary.adapterModes
+        : {};
+    console.log("Runtime:");
+    console.log(`- pending promotions: ${runtimeSummary.pendingPromotionCount ?? 0}`);
+    console.log(`- memory edges: ${runtimeSummary.memoryEdgeCount ?? 0}`);
+    console.log(`- adapters tracked: ${Object.keys(adapterStates).length}`);
+    for (const [name, state] of Object.entries(adapterStates)) {
+      if (!state || typeof state !== "object") {
+        continue;
+      }
+      console.log(`- ${name}: ${state.ownership ?? "unknown"}`);
+    }
+    for (const [name, state] of Object.entries(adapterModes)) {
+      if (!state || typeof state !== "object") {
+        continue;
+      }
+      console.log(`- mode ${name}: ${state.mode ?? "unknown"}`);
     }
     console.log("");
   }
